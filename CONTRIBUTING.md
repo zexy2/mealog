@@ -40,6 +40,16 @@ enforced against the diff, not just described. The full convention, including
 how to widen a scope mid-flight, is in
 [docs/submission/AGENTS.md](docs/submission/AGENTS.md).
 
+## Dependency updates
+
+Dependabot opens grouped pull requests weekly. They do not need a claim issue,
+and they are not merged because they are green — they are merged when green
+*and* the change is one a person would have made. `docs/security.md` §8 says
+which advisories are gated (server runtime) and which are reported (mobile
+tooling, build tools); the review rule is there too: a red run only proves the
+update is wrong when it fails for a reason the update caused. A failing claim
+check hides the real result, so rebase first and read the logs.
+
 ## Conventions that matter here
 
 - **A locale is data, not code (D2).** Adding a market means adding a pack

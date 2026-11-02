@@ -1,0 +1,11 @@
+# The agent work-claim template is the only structured form. It exists for the
+# workflow in docs/submission/AGENTS.md, which is internal to this project.
+# Visitors get the plain form so that a claim label never lands on a bug report.
+blank_issues_enabled: true
+contact_links:
+  - name: Question about the evaluation or the accuracy claims
+    url: https://github.com/zexy2/mealog/discussions
+    about: Ask here instead of opening an issue when nothing is broken.
+  - name: Licences of third-party nutrition data
+    url: https://github.com/zexy2/mealog/blob/main/docs/licensing.md
+    about: Read this before reusing data packs or the Turkish catalogue.

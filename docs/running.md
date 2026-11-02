@@ -46,9 +46,13 @@ Terminal 1:
 ```sh
 cd server
 npm ci
-npm run build
-VISION_PROVIDER=fixture PORT=3000 npm start
+VISION_PROVIDER=fixture PORT=3000 npm start           # Nest CLI, compiles on start
+# or: npm run start:dev   (watch mode) | npm run build && npm run start:prod
 ```
+
+`nest start` is the development entry point; it compiles with the build-time
+`tsc`, so there is no separate build step. `start:prod` runs the compiled
+`dist/src/main.js` and is what a container should use.
 
 Terminal 2:
 

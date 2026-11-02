@@ -25,7 +25,7 @@ passes the required `check` job:
 | Licence boundary | `make licence` |
 | Generated status is current | `make status` then commit |
 | Eval regression guard | `make eval` |
-| TypeScript build, lint, tests | `cd server && npm run build && npm run lint && npm run test` |
+| TypeScript build, lint, tests | `cd server && npm run build && npm run lint && npm run test` (`nest build`) |
 | Runtime dependency audit | `make audit` (server only; see `docs/security.md` §8) |
 
 `make check` runs the Python half. Run both halves before opening a pull

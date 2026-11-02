@@ -382,6 +382,31 @@ live runs each on the 75 live-eligible rows; the result is
 Its headline is that Item F1 moved from 0.36–0.37 to 0.41 while coverage did
 not move.
 
+`--predictions PATH` writes a per-row JSONL artifact for a live run: identity
+(`config`, `sample_id`, `locale`, `cuisine`, `tier`, `prompt_variant`), what the
+model produced (each item's `query`, `food_id` or abstain sentinel, `abstained`,
+`confidence`, and up to three `candidates` with `food_id` and `score`), the
+scoring sets (`truth_ids`, `pred_ids`), and `row_error`. It is live-only; passing
+it without `--live` exits 2 and writes nothing, because the offline path is
+deterministic and the artifact records live perception. There is exactly one
+line per attempted row, including a failed row, which carries empty `perceived`
+and `pred_ids` and the exception message in `row_error`; a row removed before a
+call (licence scope, or a catalogue pack that is not installed) was not
+attempted and produces no line. An existing target is overwritten, missing
+parents are created as with `--summary-json`, and the file contains no image
+bytes, base64, absolute filesystem paths, or API key.
+
+```bash
+python eval/harness.py --configs V3 --live --prompt-variant p4 \
+  --predictions /tmp/preds.jsonl
+```
+
+The real line the test double emitted, with the third candidate omitted:
+
+```json
+{"config":"V3","sample_id":"n5k_0001","locale":"en_US","cuisine":"western","tier":"tier_1","prompt_variant":"p4","perceived":[{"query":"grilled chicken","food_id":"us.chicken_breast_grilled","abstained":false,"confidence":1.0,"candidates":[{"food_id":"us.chicken_breast_grilled","score":1.0},{"food_id":"us.salmon_cooked","score":0.416}]}],"truth_ids":["us.chicken_breast_grilled"],"pred_ids":["us.chicken_breast_grilled"],"row_error":null}
+```
+
 ### Live budget and failure attribution
 
 The per-row wall-clock budget is resolved when the adapter is constructed. An

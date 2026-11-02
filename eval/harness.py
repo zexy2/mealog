@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,11 @@ from metrics import (Bucket, SampleResult, aggregate, aggregate_by_tier, error_d
 GOLDEN = REPO / "eval" / "golden" / "manifest.jsonl"
 IMAGES = REPO / "data" / "golden-images"
 BASELINE = REPO / "eval" / "reports" / "baseline.json"
+
+#: A per-row artifact is a debugging instrument, not a ranking report. Three
+#: candidates are enough to see whether a truth item was named or nearly bound,
+#: and keeping the cap here stops the file growing with the retrieval depth.
+MAX_DETAIL_CANDIDATES = 3
 
 
 def calorie_truth_complete(entry: dict) -> bool:
@@ -116,6 +122,43 @@ def select_rows(
     return rows
 
 
+def _perceived_detail(items: list[Any]) -> list[dict]:
+    """One compact record per resolved item, for the live prediction artifact.
+
+    ``ResolvedItem`` carries the binding decision and the candidate list that
+    produced it. The candidate model has no match-kind field, so ``food_id``
+    and ``score`` are the whole explanation of a binding; the list is capped
+    and keeps retrieval order.
+    """
+    return [
+        {
+            "query": item.query,
+            "food_id": item.food_id,
+            "abstained": item.abstained,
+            "confidence": item.confidence,
+            "candidates": [
+                {"food_id": candidate.food_id, "score": candidate.score}
+                for candidate in item.candidates[:MAX_DETAIL_CANDIDATES]
+            ],
+        }
+        for item in items
+    ]
+
+
+_ABSOLUTE_PATH = re.compile(r"(?<![\w:/])/(?:[^\s;,'\"\[\]()]+)")
+
+
+def _row_error_message(exc: Exception) -> str:
+    """Keep the failure reason without turning the artifact into a path listing.
+
+    A missing image raises ``FileNotFoundError("missing /abs/.../dish.png; ...")``,
+    so the exception text itself can name a filesystem path. The artifact is a
+    portable record of what was attempted, so absolute path tokens are replaced
+    while the actionable part of the message survives.
+    """
+    return _ABSOLUTE_PATH.sub("<path>", str(exc))
+
+
 def evaluate(
     config_name: str,
     *,
@@ -126,6 +169,7 @@ def evaluate(
     limit: int | None = None,
     prompt_variant: str = PROMPT_VERSION,
     adapter_sink: list[Any] | None = None,
+    detail_sink: list[dict] | None = None,
 ) -> tuple[list[SampleResult], list[str]]:
     """Score one configuration and return ``(results, row_errors)``.
 
@@ -142,6 +186,12 @@ def evaluate(
     ``adapter_sink`` is an optional live-only hook: the constructed adapter is
     appended so ``main`` can read the served model and effective budget after
     the run. Offline construction is unchanged.
+
+    ``detail_sink`` is an optional per-row artifact hook. One dict is appended
+    per attempted row -- a failed live row is still attempted -- so the number
+    of records equals the denominator the run actually used. Rows removed before
+    any call (licence scope, or a catalogue pack that is not installed) are not
+    attempted and produce no record.
     """
     cfg = CONFIGS[config_name]
     if live:
@@ -184,6 +234,23 @@ def evaluate(
                 # Input/provider failure for this row only; keep measuring.
                 print(f"row {sample_id} failed: {exc}", file=sys.stderr)
                 row_errors.append(sample_id)
+                if detail_sink is not None:
+                    # A failed row is still part of the attempted denominator.
+                    # Truth is known from the manifest; nothing was perceived.
+                    detail_sink.append({
+                        "config": config_name,
+                        "sample_id": sample_id,
+                        "locale": entry["locale"],
+                        "cuisine": entry["cuisine"],
+                        "tier": entry["tier"],
+                        "prompt_variant": prompt_variant,
+                        "perceived": [],
+                        "truth_ids": sorted(
+                            {item["food_id"] for item in entry["truth"]["items"]}
+                        ),
+                        "pred_ids": [],
+                        "row_error": _row_error_message(exc),
+                    })
                 continue
         else:
             log = run(vision, entry["sample_id"], entry["locale"], cfg,
@@ -219,6 +286,19 @@ def evaluate(
                 identity_applicable=cfg.grounded,
             ),
         ))
+        if detail_sink is not None:
+            detail_sink.append({
+                "config": config_name,
+                "sample_id": entry["sample_id"],
+                "locale": entry["locale"],
+                "cuisine": entry["cuisine"],
+                "tier": entry["tier"],
+                "prompt_variant": prompt_variant,
+                "perceived": _perceived_detail(log.items),
+                "truth_ids": sorted(truth_ids),
+                "pred_ids": sorted(pred_ids),
+                "row_error": None,
+            })
     if skipped:
         print(
             f"[{config_name}] skipped golden samples for locale(s) {', '.join(sorted(skipped))}: "
@@ -565,10 +645,27 @@ def main() -> int:
         default=None,
         help="write the README-facing numbers as JSON (used by scripts/check_readme_claims.py)",
     )
+    ap.add_argument(
+        "--predictions",
+        default=None,
+        metavar="PATH",
+        help=(
+            "live only: write one JSON object per attempted row, with each "
+            "item's binding and top candidates; overwrites an existing file"
+        ),
+    )
     args = ap.parse_args()
 
     if args.limit is not None and args.limit < 0:
         ap.error("--limit cannot be negative")
+
+    if args.predictions and not args.live:
+        # Offline is a fixture replay keyed by sample_id: it is already
+        # deterministic and has no provider perception to record.
+        ap.error(
+            "--predictions requires --live: the offline path is deterministic "
+            "and the artifact records live perception"
+        )
 
     manifest_path = args.manifest if args.manifest.is_absolute() else REPO / args.manifest
     images_dir = args.images_dir if args.images_dir.is_absolute() else REPO / args.images_dir
@@ -599,6 +696,7 @@ def main() -> int:
     all_results: dict[str, list[SampleResult]] = {}
     row_errors: list[str] = []
     adapters: list[Any] = []
+    details: list[dict] = []
     for name in args.configs.split(","):
         results, errors = evaluate(
             name,
@@ -609,6 +707,7 @@ def main() -> int:
             limit=args.limit,
             prompt_variant=run_prompt_variant,
             adapter_sink=adapters if args.live else None,
+            detail_sink=details if args.predictions else None,
         )
         all_results[name] = results
         row_errors.extend(errors)
@@ -633,6 +732,23 @@ def main() -> int:
         if adapters:
             max_elapsed_seconds = getattr(adapters[-1], "max_elapsed", None)
             request_timeout_seconds = getattr(adapters[-1], "timeout", None)
+
+    if args.predictions:
+        # Same path convention as --summary-json: relative paths are repo-rooted
+        # and missing parents are created. An existing file is overwritten.
+        path = Path(args.predictions)
+        if not path.is_absolute():
+            path = REPO / path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+            for row in details
+        ]
+        path.write_text(
+            "\n".join(lines) + ("\n" if lines else ""),
+            encoding="utf-8",
+        )
+        print(f"wrote {args.predictions}")
 
     if args.summary_json:
         path = Path(args.summary_json)

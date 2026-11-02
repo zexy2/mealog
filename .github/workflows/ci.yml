@@ -100,6 +100,11 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - name: install server dependencies
         run: npm ci
+      # This workspace parses untrusted images and multipart bodies, so a high
+      # advisory in a runtime dependency is a defect, not a chore. Tooling
+      # advisories are excluded by --omit=dev; docs/security.md section 8.
+      - name: dependency audit (runtime, high and above)
+        run: npm audit --omit=dev --audit-level=high
       - name: build
         run: npm run build
       - name: lint

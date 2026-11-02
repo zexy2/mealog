@@ -1,6 +1,6 @@
 PYTHON ?= $(shell if [ -f $(CURDIR)/server/.venv/bin/python ]; then echo "$(CURDIR)/server/.venv/bin/python"; elif which python3 >/dev/null 2>&1; then echo "python3"; else echo "python"; fi)
 
-.PHONY: install eval eval-live test lint invariants licence pack status check api db clean
+.PHONY: install eval eval-live test lint invariants licence pack audit status check api db clean
 
 install:
 	cd server && $(PYTHON) -m pip install -e ".[dev]" -q
@@ -30,6 +30,11 @@ licence:
 # Obtain the restricted Turkish catalogue into locale_packs/tr/.
 pack:
 	$(PYTHON) scripts/install_restricted_pack.py --source "$${TR_PACK_SOURCE:?set TR_PACK_SOURCE to a directory, zip, or URL}"
+
+# Runtime dependencies only: the server workspace parses untrusted input, so a
+# high advisory there fails the build. See docs/security.md section 8.
+audit:
+	cd server && npm audit --omit=dev --audit-level=high
 
 status:
 	$(PYTHON) scripts/status.py

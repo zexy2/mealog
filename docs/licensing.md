@@ -29,12 +29,13 @@ attribution for written use plus a clickable source link for internet use.
 Commercial use in software or on a website requires a separate agreement with
 the authorised institution. This repository does not grant that permission.
 
-The pack contains 57 selected rows. Nutrient values identify TürKomp as their
-source. Project `food_id` values, transliterated/display labels, aliases, serving
-defaults, density annotations, retrieval metadata, and confidence behavior are
-mealog additions; they are not represented as official TürKomp fields. Consult
-the official source rather than treating this subset as a complete or current
-copy of the database.
+The installed catalogue holds 57 selected rows. Nutrient values identify
+TürKomp as their source. Project `food_id` values, transliterated/display
+labels, aliases, serving defaults, density annotations, retrieval metadata, and
+confidence behavior are mealog additions; they are not represented as official
+TürKomp fields. Consult the official source rather than treating this subset as
+a complete or current copy of the database. None of these rows are in the
+repository: what ships here is `pack.yaml`, `text_rules.yaml` and this notice.
 
 ## Japanese locale pack: unverified legacy data
 

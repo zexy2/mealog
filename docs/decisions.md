@@ -28,8 +28,10 @@ because the user can see it.
 
 **Decision.** Each market is a directory: `foods.jsonl`, `aliases.jsonl`,
 `units.jsonl`, `text_rules.yaml`, `pack.yaml` (with a **license** field). Nothing
-in `server/src` references a locale by name. Three packs ship (`en_US`, `tr`,
-`ja_JP`) plus `scripts/build_locale_pack.py`.
+in `server/src` references a locale by name. Three packs are defined (`en_US`,
+`tr`, `ja_JP`) plus `scripts/build_locale_pack.py`. `en_US` and `ja_JP` ship in
+full; `tr` ships metadata only, because its rows are `restricted-noncommercial`
+and are installed separately with `scripts/install_restricted_pack.py` (D15).
 
 **Rejected.** One global catalogue with per-market special cases.
 
@@ -476,3 +478,37 @@ so production needs a shared store and atomic distributed limits. A 20-item
 response is slower and harder for the model to keep aligned; request indexes and
 strict response-count validation reject partial or reordered ambiguity instead
 of guessing.
+
+---
+
+## D21 — Restricted catalogue data is installed, not committed
+
+**Decision.** A pack whose data licence forbids unlimited redistribution ships
+as a *definition*: `pack.yaml`, `text_rules.yaml`, and a notice stating the
+terms. Its catalogue (`foods.jsonl`, `aliases.jsonl`, `units.jsonl`) is listed
+in `.gitignore` and installed with `scripts/install_restricted_pack.py`, which
+accepts a directory, a `.zip`, or an HTTPS URL and validates before writing.
+Both loaders raise `PackUnavailableError` for a defined pack with no catalogue,
+and the API answers `503` with the locale and reason. The licence check
+(`make licence`) is blocking, and `status.py` counts committed catalogue files
+so the generated status file cannot drift with a developer's local install.
+
+**Rejected.** Committing the rows under a footnote that excludes them from MIT
+(the previous state: every clone received restricted data while the licence said
+it did not); making the check advisory until the pack "is served from a download
+at runtime" (a plan, not a control); deleting the rows and the pack, which would
+silently remove the market the project is built around.
+
+**Constraint.** D1 caps recall by catalogue coverage, and the Turkish pack is
+the deepest stratum of the evaluation. The data therefore has to stay usable
+for anyone entitled to it, while a clone of the repository must not be a
+distribution channel for it. The check also has to survive the honest fact that
+a deleted blob stays reachable in history, which is why the guard lives in the
+build rather than in a review checklist.
+
+**Cost.** A clean clone defines three locales but serves two; the Turkish
+demo path needs one install step, and 164 Python / 73 TypeScript tests skip with
+a named reason until it is done. The pack's evaluation numbers (the Turkish
+retrieval variants and the three Turkish golden samples) are absent from a
+clean-clone run, so a reader who wants them must install the data first. That is
+the intended trade: absent and named, rather than silent and zero.

@@ -14,7 +14,6 @@
     "lint": "eslint .",
     "test": "vitest run",
     "start": "node dist/src/main.js"
-
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
@@ -33,5 +32,8 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.1",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "multer": "2.5.0"
   }
 }

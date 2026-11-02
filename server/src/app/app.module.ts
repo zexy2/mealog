@@ -15,6 +15,7 @@ import type { VisionPort } from '../pipeline/ports';
 import { HealthController, MetricsController } from './health.controller';
 import { HttpExceptionFilter } from './http-exception.filter';
 import { MealsController } from './meals.controller';
+import { FoodsService } from './foods.service';
 import { MealsService, VISION_PORT } from './meals.service';
 import { ObservabilityInterceptor } from './observability.interceptor';
 
@@ -60,6 +61,7 @@ configureLogging(settings.log_level);
       inject: [Settings],
     },
     MealsService,
+    FoodsService,
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

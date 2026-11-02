@@ -85,6 +85,22 @@ the locale and reason, while `en_US` and `ja_JP` keep working:
 make pack   # TR_PACK_SOURCE=<directory|zip|url> make pack
 ```
 
+**Typed food names.** The mobile review screen adds food to a plate by asking
+the same catalogue, not by holding a table of its own (D22). The request the
+client makes is:
+
+```sh
+curl --fail --silent \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "scrambled eggs", "locale": "en_US"}' \
+  http://localhost:3000/v1/foods/resolve
+```
+
+The answer is either `action: "resolved"` with a `food_id`, a portion range and
+catalogue nutrition, or `action: "abstain"` with zero nutrients. A name the pack
+does not have (try `{"text": "burger", "locale": "en_US"}`) must abstain — the
+UI then offers a user-entered calorie instead of inventing a row.
+
 ## 3. Optional live Gemini integration
 
 Live mode requires a server-side key; never place it in the mobile bundle.

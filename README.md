@@ -93,7 +93,7 @@ reference tooling, not the delivered backend.
 ## Design decisions
 
 These are the choices that shaped the system, each with the trade-off it cost.
-The full record is [decision log D1–D21](docs/decisions.md).
+The full record is [decision log D1–D22](docs/decisions.md).
 
 | Decision | What it buys | What it costs |
 | --- | --- | --- |
@@ -101,6 +101,7 @@ The full record is [decision log D1–D21](docs/decisions.md).
 | **A locale is a data pack, not code** ([D2](docs/decisions.md#d2)) | New markets need no pipeline branches; licence stays explicit | Pack curation and legal review per market |
 | **Worst-cuisine metric, read with coverage** ([D3](docs/decisions.md#d3)) | Distribution shift stays visible instead of hidden by an average | Small buckets are noisy and less flattering |
 | **Restricted data is installed, not committed** ([D21](docs/decisions.md#d21)) | Licence terms stop contradicting the repository's own grant | A clean clone needs one install step for Turkish |
+| **The client asks the catalogue, never guesses** ([D22](docs/decisions.md#d22)) | One place decides what a food is; D1 holds at the screen too | A typed food needs a round trip |
 | **Expo mobile client, not a web app** ([D9](docs/decisions.md#d9)) | Real camera and native review flow | Device compatibility needs separate runtime verification |
 | **NestJS edge plus Python evaluation harness** ([D12](docs/decisions.md#d12)) | Typed HTTP surface plus reproducible offline measurement | Two runtimes and parity ceremony |
 
@@ -205,8 +206,9 @@ pack whose terms do not fit your use case.
 - Live-provider accuracy is unmeasured; the scorecard replays fixtures recorded
   with a different Gemini model from the live adapter default.
 - Only 2/80 rows are complete and covered for calorie MAPE.
-- The mobile client retains a shadow nutrition/correction map and local matching
-  rules. This weakens the intended server-authoritative D1 boundary.
+- The mobile client resolves a typed food name through the server
+  (`POST /v1/foods/resolve`) and holds no nutrition table of its own (D22). Its
+  demo mode still answers from a small fixed demo catalogue, labelled `DEMO`.
 - Current Expo transitive tooling reports npm audit advisories; automatic
   remediation requires a major SDK compatibility/device pass.
 - Correction telemetry is a process-local prototype, not durable consented

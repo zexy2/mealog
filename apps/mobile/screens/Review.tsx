@@ -45,33 +45,10 @@ export function getFoodEmoji(nameOrId: string): string {
   return "🍽️";
 }
 
-export const TURKISH_FOOD_NUTRITION_MAP: Record<string, { kcal_per_100g: number; protein_g: number; carb_g: number; fat_g: number; default_g: number; name: string }> = {
-  "tr.mercimek_corbasi": { kcal_per_100g: 62, protein_g: 3.1, carb_g: 9.4, fat_g: 1.4, default_g: 250, name: "Mercimek çorbası" },
-  "tr.kuru_fasulye": { kcal_per_100g: 118, protein_g: 6.9, carb_g: 13.2, fat_g: 4.3, default_g: 250, name: "Kuru fasulye (etli)" },
-  "tr.pilav": { kcal_per_100g: 151, protein_g: 3.0, carb_g: 28.0, fat_g: 3.1, default_g: 180, name: "Pirinç pilavı" },
-  "tr.lahmacun": { kcal_per_100g: 243, protein_g: 10.5, carb_g: 34.0, fat_g: 7.4, default_g: 140, name: "Lahmacun" },
-  "tr.menemen": { kcal_per_100g: 118, protein_g: 6.2, carb_g: 4.8, fat_g: 8.3, default_g: 220, name: "Menemen" },
-  "tr.simit": { kcal_per_100g: 329, protein_g: 9.5, carb_g: 57.0, fat_g: 6.6, default_g: 100, name: "Simit" },
-  "tr.ayran": { kcal_per_100g: 37, protein_g: 1.7, carb_g: 2.6, fat_g: 2.0, default_g: 200, name: "Ayran" },
-  "tr.yaprak_sarma": { kcal_per_100g: 182, protein_g: 3.1, carb_g: 22.4, fat_g: 8.9, default_g: 150, name: "Zeytinyağlı yaprak sarma" },
-  "tr.ekmek_beyaz": { kcal_per_100g: 276, protein_g: 9.4, carb_g: 50.1, fat_g: 3.2, default_g: 25, name: "Ekmek, beyaz" },
-  "tr.kofte_izgara": { kcal_per_100g: 218, protein_g: 18.5, carb_g: 4.2, fat_g: 14.1, default_g: 150, name: "Izgara Köfte" },
-  "tr.coban_salatasi": { kcal_per_100g: 45, protein_g: 1.2, carb_g: 4.5, fat_g: 2.5, default_g: 150, name: "Çoban Salatası" },
-  "tr.bulgur_pilavi": { kcal_per_100g: 150, protein_g: 3.8, carb_g: 26.5, fat_g: 3.2, default_g: 180, name: "Bulgur pilavı" },
-  "tr.pizza": { kcal_per_100g: 266, protein_g: 11.0, carb_g: 33.0, fat_g: 10.0, default_g: 150, name: "Pizza (Karışık)" },
-  "tr.sucuk": { kcal_per_100g: 395, protein_g: 15.8, carb_g: 2.1, fat_g: 35.1, default_g: 50, name: "Sucuk" },
-  "tr.ezogelin_kuru": { kcal_per_100g: 318, protein_g: 12.0, carb_g: 54.3, fat_g: 4.8, default_g: 50, name: "Ezogelin çorbası" },
-  "tr.cay_siyah_kuru": { kcal_per_100g: 269, protein_g: 21.6, carb_g: 21.4, fat_g: 0.4, default_g: 2, name: "Çay" },
-  "tr.manti": { kcal_per_100g: 292, protein_g: 12.6, carb_g: 45.5, fat_g: 5.7, default_g: 200, name: "Mantı" },
-  "tr.domates": { kcal_per_100g: 19, protein_g: 0.9, carb_g: 2.9, fat_g: 0.2, default_g: 120, name: "Domates" },
-  "tr.salatalik": { kcal_per_100g: 16, protein_g: 0.4, carb_g: 2.8, fat_g: 0.3, default_g: 100, name: "Salatalık" },
-  "tr.patates": { kcal_per_100g: 68, protein_g: 1.5, carb_g: 14.4, fat_g: 0.2, default_g: 150, name: "Patates" },
-  "tr.kasar_peyniri": { kcal_per_100g: 381, protein_g: 26.0, carb_g: 3.1, fat_g: 29.4, default_g: 30, name: "Kaşar peyniri" },
-  "tr.edirne_beyaz_peyniri": { kcal_per_100g: 306, protein_g: 17.2, carb_g: 4.7, fat_g: 24.2, default_g: 30, name: "Beyaz peynir" },
-  "tr.zeytin_siyah": { kcal_per_100g: 113, protein_g: 1.4, carb_g: 1.0, fat_g: 10.8, default_g: 30, name: "Siyah zeytin" },
-  "tr.yumurta_tavuk": { kcal_per_100g: 140, protein_g: 13.1, carb_g: 0.0, fat_g: 9.7, default_g: 50, name: "Yumurta" },
-  "tr.yogurt_tam_yagli": { kcal_per_100g: 69, protein_g: 4.5, carb_g: 4.2, fat_g: 3.8, default_g: 200, name: "Yoğurt" },
-};
+// This screen holds no nutrition values of its own (D1). A typed food name is
+// resolved by the server at POST /v1/foods/resolve, and the item it returns is
+// displayed as-is. Which food a name means is the catalogue's call; the client
+// only chooses a portion and picks between candidates it was given.
 
 type PortionSliderProps = {
   minimumValue: number;
@@ -98,8 +75,8 @@ function resolveSelectedName(item: MealLog["items"][number], selected: string, c
   if (selected === "USER_CUSTOM") return customName || item.query || "Özel Yemek";
   const cand = item.candidates.find((candidate) => candidate.food_id === selected);
   if (cand) return cand.name;
-  const cat = TURKISH_FOOD_NUTRITION_MAP[selected];
-  if (cat) return cat.name;
+  // A food_id the server sent without a matching candidate still has no local
+  // name to borrow: show the user's own words rather than a guess.
   return item.query || selected;
 }
 
@@ -252,7 +229,8 @@ export type ReviewScreenProps = {
   selectedCandidates: Record<number, string>;
   onChooseCandidate: (index: number, candidate: Candidate) => void;
   onRemoveItem?: (index: number) => void;
-  onAddItem?: (foodName: string, calories?: number) => void;
+  /** Resolves `true` when the food was added; `false` when the catalogue did not know it. */
+  onAddItem?: (foodName: string, calories?: number) => Promise<boolean> | boolean | void;
   onAcceptEstimate?: (index: number, estimate: UnverifiedNutritionEstimate) => void;
   onSave: () => void;
   isSaved?: boolean;
@@ -526,14 +504,16 @@ export function ReviewScreen({
     const currentQty = (typeof quantity === "number" && quantity > 0) ? quantity : 1;
     const quantityRatio = hasQuantityEdit ? (currentQty / serverQty) : 1;
 
-    const catInfo = TURKISH_FOOD_NUTRITION_MAP[selected];
+    // Portion edits rescale a value the server computed. When the server sent
+    // no mass there is nothing to rescale, so the macros stay at zero and the
+    // item is shown as uncaloried — never as a client-side estimate.
     const customInfo = customFoodDetails[index];
 
-    const baseGrams = (item.grams > 0) ? item.grams : (customInfo?.grams ?? catInfo?.default_g ?? 0);
-    const baseKcal = (item.nutrients.kcal > 0) ? item.nutrients.kcal : (customInfo?.kcal ?? (catInfo ? Math.round((catInfo.kcal_per_100g * baseGrams) / 100) : 0));
-    const baseProtein = (item.nutrients.protein_g > 0) ? item.nutrients.protein_g : (catInfo ? Math.round((catInfo.protein_g * baseGrams) / 100) : 0);
-    const baseCarb = (item.nutrients.carb_g > 0) ? item.nutrients.carb_g : (catInfo ? Math.round((catInfo.carb_g * baseGrams) / 100) : 0);
-    const baseFat = (item.nutrients.fat_g > 0) ? item.nutrients.fat_g : (catInfo ? Math.round((catInfo.fat_g * baseGrams) / 100) : 0);
+    const baseGrams = (item.grams > 0) ? item.grams : (customInfo?.grams ?? 0);
+    const baseKcal = item.nutrients.kcal > 0 ? item.nutrients.kcal : customInfo?.kcal ?? 0;
+    const baseProtein = item.nutrients.protein_g > 0 ? item.nutrients.protein_g : 0;
+    const baseCarb = item.nutrients.carb_g > 0 ? item.nutrients.carb_g : 0;
+    const baseFat = item.nutrients.fat_g > 0 ? item.nutrients.fat_g : 0;
 
     const effectiveGrams = hasPortionEdit
       ? portionEdits[index]
@@ -741,14 +721,13 @@ export function ReviewScreen({
           const currentQty = (typeof quantity === "number" && quantity > 0) ? quantity : 1;
           const quantityRatio = hasQuantityEdit ? (currentQty / serverQty) : 1;
 
-          const catInfo = TURKISH_FOOD_NUTRITION_MAP[selected];
           const customInfo = customFoodDetails[index];
 
-          const baseGrams = (item.grams > 0) ? item.grams : (customInfo?.grams ?? catInfo?.default_g ?? 0);
-          const baseKcal = (item.nutrients.kcal > 0) ? item.nutrients.kcal : (customInfo?.kcal ?? (catInfo ? Math.round((catInfo.kcal_per_100g * baseGrams) / 100) : 0));
-          const baseProtein = (item.nutrients.protein_g > 0) ? item.nutrients.protein_g : (catInfo ? Math.round((catInfo.protein_g * baseGrams) / 100) : 0);
-          const baseCarb = (item.nutrients.carb_g > 0) ? item.nutrients.carb_g : (catInfo ? Math.round((catInfo.carb_g * baseGrams) / 100) : 0);
-          const baseFat = (item.nutrients.fat_g > 0) ? item.nutrients.fat_g : (catInfo ? Math.round((catInfo.fat_g * baseGrams) / 100) : 0);
+          const baseGrams = (item.grams > 0) ? item.grams : (customInfo?.grams ?? 0);
+          const baseKcal = item.nutrients.kcal > 0 ? item.nutrients.kcal : customInfo?.kcal ?? 0;
+          const baseProtein = item.nutrients.protein_g > 0 ? item.nutrients.protein_g : 0;
+          const baseCarb = item.nutrients.carb_g > 0 ? item.nutrients.carb_g : 0;
+          const baseFat = item.nutrients.fat_g > 0 ? item.nutrients.fat_g : 0;
 
           const effectiveGrams = hasPortionEdit
             ? portionEdits[index]
@@ -1398,7 +1377,7 @@ export function ReviewScreen({
                     key={quick.name}
                     style={styles.quickAddChip}
                     onPress={() => {
-                      onAddItem?.(quick.name);
+                      void Promise.resolve(onAddItem?.(quick.name));
                       setShowAddPlateItem(false);
                     }}
                   >
@@ -1428,18 +1407,18 @@ export function ReviewScreen({
                       Alert.alert("Yemek Adı Gerekli", "Lütfen eklemek istediğiniz yemeği yazın.");
                       return;
                     }
-                    const lower = trimmed.toLowerCase();
-                    const inMap = Object.values(TURKISH_FOOD_NUTRITION_MAP).some(
-                      (f) => lower.includes(f.name.toLowerCase()) || f.name.toLowerCase().includes(lower)
-                    ) || lower.includes("burger") || lower.includes("pizza") || lower.includes("patates") || lower.includes("salata") || lower.includes("ayran");
-
-                    if (inMap) {
-                      onAddItem?.(trimmed);
-                      setNewPlateItemQuery("");
-                      setShowAddPlateItem(false);
-                    } else {
-                      setNewPlateItemNotFound(true);
-                    }
+                    // The catalogue decides whether this name exists. The form
+                    // stays open while the lookup runs, and an abstention opens the
+                    // manual-entry branch (no invented row, no invented calories).
+                    void Promise.resolve(onAddItem?.(trimmed)).then((added) => {
+                      if (added) {
+                        setNewPlateItemQuery("");
+                        setShowAddPlateItem(false);
+                        setNewPlateItemNotFound(false);
+                      } else {
+                        setNewPlateItemNotFound(true);
+                      }
+                    });
                   }}
                 >
                   <Ionicons name="add" size={16} color={colors.white} />
@@ -1473,7 +1452,7 @@ export function ReviewScreen({
                         Alert.alert("Geçersiz kalori", "1–5000 arasında bir kalori değeri girin.");
                         return;
                       }
-                      onAddItem?.(newPlateItemQuery.trim(), kcal);
+                      void Promise.resolve(onAddItem?.(newPlateItemQuery.trim(), kcal));
                       setNewPlateItemQuery("");
                       setNewPlateItemKcal("");
                       setNewPlateItemNotFound(false);

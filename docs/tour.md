@@ -27,7 +27,7 @@ and [D1](decisions.md#d1--the-model-never-produces-a-nutrient-number).
 
 | # | What | Why it matters | Time |
 | --- | --- | --- | --- |
-| 1 | [`docs/decisions.md`](decisions.md) | 21 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21. | 8 min |
+| 1 | [`docs/decisions.md`](decisions.md) | 22 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21, D22. | 8 min |
 | 2 | [`docs/evaluation.md`](evaluation.md) | What the numbers mean, what they do not, and the tier system behind them. | 6 min |
 | 3 | [`docs/assumptions.md`](assumptions.md) | The claims checked before they were written down, including one that was wrong. | 5 min |
 | 4 | [`docs/architecture.md`](architecture.md) | Topology and the seven grounded stages. | 4 min |
@@ -105,6 +105,8 @@ states it in the same words.
   Recall@1 on the variant set; identity over photographed plates is 0.15 Item F1.
 - **Mobile advisories are open** and need an Expo-aware upgrade, not a lockfile
   rewrite ([why](security.md#8-dependency-policy)).
+- **Demo mode resolves names locally** from a small fixed demo catalogue
+  labelled `DEMO`; the live client never does (D22).
 - **Correction telemetry is a process-local prototype**, and no fine-tuning run
   exists. The fine-tuning plan is a plan.
 - **The Turkish demo needs one install step** (`make pack`) and 164 Python /

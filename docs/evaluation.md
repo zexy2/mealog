@@ -348,6 +348,12 @@ A live run with no `--limit` over the published scope is 77 calls at the
 adapter's four-second pacing: roughly 6-9 minutes and a few cents. Nothing is
 written to `eval/fixtures/`.
 
+One such run exists: a twelve-row `en_US` pilot on 2026-11-02 committed 3 of
+12 rows, Item F1 0.10, FP rate 90.9%, and 25.4% calorie error on the single
+scored row. A first run of the same rows committed 4 of 12. The numbers, the
+selection and the reasons they are not comparable to the snapshot above are in
+[live-observation-2026-11-02.md](live-observation-2026-11-02.md).
+
 ## Current evidence boundary
 
 The 80 recorded provider responses are real inputs from [#3](https://github.com/zexy2/mealog/issues/3),

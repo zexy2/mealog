@@ -274,10 +274,12 @@ def scorecard(
             share = count / total * 100.0 if total else 0.0
             lines.append(f"| {name} | {code} | {count} | {share:.1f}% |")
 
+    provenance = ("a live observation" if mode == "live"
+                  else "offline evidence")
     lines += ["", "---", "",
               "> Calorie eligibility and scored counts expose the denominator: rows with",
               "> partial truth or zero calories remain visible to identity metrics but do",
-              "> not become fake calorie errors. Numbers here are offline evidence, not a",
+              f"> not become fake calorie errors. Numbers here are {provenance}, not a",
               "> claim that an empty calorie denominator means zero error.",
               "",
               "> Read MAPE and coverage together: a config that answers fewer meals",

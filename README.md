@@ -214,13 +214,15 @@ pack whose terms do not fit your use case.
 
 - No public deployment URL and no current-release simulator or physical-device
   E2E claim.
-- Live-provider accuracy is still unmeasured, but it is now measurable:
-  `make eval-live` sends the fetched golden images to the configured model and
-  writes a dated observation. It never rewrites the committed fixtures (D24),
-  and committed fixtures are prompt `p3` against an adapter at `p4`, so a live
-  scorecard is not comparable to the snapshot above. `jp_0001` / `jp_0002` are
-  UEC images (non-commercial research only, source HTTP 403) and must not be
-  sent to a third-party API, capping live coverage at 75/77.
+- Live-provider accuracy has one dated data point, not a measurement:
+  a twelve-row `en_US` pilot committed 3 of 12 rows with Item F1 0.10 and FP
+  rate 90.9%, and a rerun of the same rows committed 4 of 12. The run is
+  [published as an observation](docs/live-observation-2026-11-02.md) because
+  the provider output moved between runs, the prompt (`p4`) differs from the
+  committed fixtures (`p3`), and one row carries the calorie denominator.
+  `make eval-live` never rewrites the committed fixtures (D24). `jp_0001` /
+  `jp_0002` are UEC images (non-commercial research only, source HTTP 403) and
+  must not be sent to a third-party API, capping live coverage at 75/77.
 - Only 2 of the 77 published rows are complete and covered for calorie
   MAPE (2/80 including the licence-restricted pack).
 - The mobile client resolves a typed food name through the server

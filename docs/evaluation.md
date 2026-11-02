@@ -368,6 +368,17 @@ and media type are sent to the adapter, or its text when the row is the text
 lane. `--manifest`, `--images-dir` and `--limit` bound the run; `--limit N`
 applies after scope filtering, in manifest order.
 
+`--prompt-variant NAME` selects a named prompt for a live run; the shipping
+variant is the default and is what an offline replay implies. The flag is
+ignored offline because fixtures replay by `sample_id`, so passing it does not
+change the offline scorecard. The live scorecard header and `--summary-json`
+record the variant, so a live result names its prompt rather than the module
+constant.
+
+The one attempted use, which produced no comparison because the provider timed
+out, is recorded in
+[live-prompt-pilot-2026-11-02.md](live-prompt-pilot-2026-11-02.md).
+
 A live scorecard differs from the committed one in three ways, and they are
 printed rather than implied:
 

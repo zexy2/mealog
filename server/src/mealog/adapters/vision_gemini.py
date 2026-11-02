@@ -78,6 +78,68 @@ Rules:
   evidence, never positive evidence.
 """
 
+_P5_SYSTEM_PROMPT = """You list what food is visible in the supplied image or text.
+Return observed items only. You do NOT estimate calories, macros, nutrients, or
+grams. The downstream catalogue and nutrition stages handle those values.
+
+Rules:
+- Name dishes in the language on the plate's origin if you recognise it.
+- If unsure between two dishes, return the more general one and lower confidence.
+- Never invent an item you cannot see. Omission is cheaper than invention.
+- Counting precision rules:
+  * For individually countable food items that are clearly and distinctly visible as single standalone items (e.g. a single whole simit on a plate, one apple, one boiled egg, a standalone whole pastry, or a single glass of drink), return `count: 1`.
+  * For multiple countable items where each instance is distinctly separated and completely visible, return the exact integer count (e.g. `count: 2`).
+  * Only when instances are overlapping, stacked, cropped, occluded, or when the exact total quantity is genuinely ambiguous, return `count: null`; never guess. Two stacked simit rings are an occluded arrangement: return `count: null` even if two rings appear recognisable.
+- Decompose composite surfaces into their visible components. When the components are distinguishable, return one `items[]` object per component; never return `rice and meat` or `chicken salad` as one item. A plate with meatballs, rice, bread, and salad has four item objects. Never combine multiple visible foods into one `surface_form`: do not return comma-separated or conjunction-linked food lists.
+- List visible fats, oils, dressings, sauces, garnishes, and drinks as their own items when they are visible or clearly implied by the plate (a glisten of oil, a dressing pool, a sauce ladle). Give each a small portion (a qualitative `small` or `a drizzle`, never a gram estimate) rather than omitting it because it is small. A clearly implied item must still be supported by visible evidence; do not use this rule to invent food that is not there.
+- A single serving in one glass, bowl, plate, or other container is one observed
+  item: return one item with `count: null`. Never count liquid volume, pixels,
+  or a serving container as multiple food instances. Do not report inedible
+  decorative leaves or unidentifiable background as separate food items. Do not
+  add ABSTAIN or other placeholder items.
+- Return every item with all required schema fields: `surface_form`,
+  `cooking_method`, `portion_hint`, `count`, `medium`, and `confidence`.
+- `count` is the only count field. Keep `portion_hint` non-numeric: use a
+  qualitative description such as `whole`, `bowl`, `stacked`, `small`, or
+  `a drizzle`, never a count, gram estimate, or numeric serving estimate.
+- Set `medium` to exactly one of `real_plate`, `screen`, `printed`,
+  `toy_or_model`, or `unclear` for every observed item. Use `screen` for food
+  shown inside a display, `printed` for paper, packaging, or other printed
+  imagery, and `toy_or_model` for a toy, miniature, moulded replica, or
+  obviously synthetic food. Use `real_plate` only for a real serving
+  photographed directly. If you cannot tell, or the image is torn between a
+  real serving and another medium, use `unclear`. `real_plate` is neutral
+  evidence, never positive evidence.
+"""
+
+#: Named prompt variants. ``p4`` is the shipped prompt and is kept byte-for-byte
+#: as it was, so the default path cannot drift. ``p5`` is an opt-in experiment.
+PROMPTS: dict[str, str] = {
+    "p4": SYSTEM_PROMPT,
+    "p5": _P5_SYSTEM_PROMPT,
+}
+PROMPT_VARIANTS: tuple[str, ...] = tuple(PROMPTS)
+
+
+class UnknownPromptVariant(ValueError):
+    """The requested prompt variant is not one this adapter can send."""
+
+
+def prompt_for_variant(name: str) -> str:
+    """Return the system prompt for ``name`` or fail with the valid names.
+
+    Resolving eagerly (rather than at request time) means a typo cannot reach
+    the provider, and the error tells the caller what it could have asked for.
+    """
+    try:
+        return PROMPTS[name]
+    except KeyError:
+        available = ", ".join(PROMPT_VARIANTS)
+        raise UnknownPromptVariant(
+            f"unknown prompt variant '{name}'; available variants: {available}"
+        ) from None
+
+
 RESPONSE_SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -296,10 +358,13 @@ class GeminiVision:
         jitter_fn: Callable[[float], float] | None = None,
         request_interval: float = REQUEST_INTERVAL_SECONDS,
         model_id: str | None = None,
+        prompt_variant: str = PROMPT_VERSION,
     ):
         if not api_key.strip():
             raise ValueError("GEMINI_API_KEY is required for the live vision provider")
         self.api_key = api_key
+        self.prompt_variant = prompt_variant
+        self.system_prompt = prompt_for_variant(prompt_variant)
         self.model_id = model_id or model or configured_model_id()
         self.model = self.model_id
         self.timeout = timeout
@@ -336,7 +401,7 @@ class GeminiVision:
         timeout: float | None = None,
     ) -> dict[str, Any]:
         payload = {
-            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "systemInstruction": {"parts": [{"text": self.system_prompt}]},
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {
                 "responseMimeType": "application/json",
@@ -526,7 +591,7 @@ class GeminiVision:
             "input_sha256": input_ref.content_hash,
             "provider": self.name,
             "model_id": self.last_model,
-            "prompt_version": PROMPT_VERSION,
+            "prompt_version": self.prompt_variant,
             "input_kind": "user_text" if input_ref.text and input_ref.text.strip() else "vision",
             "degraded": self.degraded,
             "rung": self.rung,

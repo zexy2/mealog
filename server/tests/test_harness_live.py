@@ -69,8 +69,9 @@ class RecordingVision:
     fail_ids: ClassVar[set[str]] = set()
     instances: ClassVar[list[RecordingVision]] = []
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, prompt_variant: str = "p4"):
         self.api_key = api_key
+        self.prompt_variant = prompt_variant
         self.seen = []
         self.name = "gemini"
         type(self).instances.append(self)

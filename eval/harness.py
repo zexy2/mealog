@@ -22,6 +22,7 @@ sys.path.insert(0, str(REPO / "server" / "src"))
 
 from mealog import obs                                    # noqa: E402
 from mealog.adapters.vision_gemini import (                # noqa: E402
+    PROMPT_VARIANTS,
     PROMPT_VERSION,
     GeminiVision,
     configured_model_id,
@@ -94,6 +95,7 @@ def evaluate(
     manifest_path: Path = GOLDEN,
     images_dir: Path = IMAGES,
     limit: int | None = None,
+    prompt_variant: str = PROMPT_VERSION,
 ) -> tuple[list[SampleResult], list[str]]:
     """Score one configuration and return ``(results, row_errors)``.
 
@@ -109,7 +111,11 @@ def evaluate(
     """
     cfg = CONFIGS[config_name]
     if live:
-        vision = GeminiVision(os.getenv("GEMINI_API_KEY", ""))
+        # The variant is a live-provider concern. Offline replays fixtures by
+        # sample_id, so the flag has no meaning there and is not plumbed in.
+        vision = GeminiVision(
+            os.getenv("GEMINI_API_KEY", ""), prompt_variant=prompt_variant
+        )
     else:
         vision = make_vision("fixture")
     results = []
@@ -303,6 +309,7 @@ def summary(
     mode: str = "offline",
     provider_model: str | None = None,
     prompt_version: str | None = PROMPT_VERSION,
+    prompt_variant: str | None = None,
     rows_requested: int | None = None,
     row_errors: list[str] | None = None,
 ) -> dict:
@@ -322,6 +329,7 @@ def summary(
         "mode": mode,
         "provider_model": provider_model,
         "prompt_version": prompt_version,
+        "prompt_variant": prompt_variant or prompt_version,
         "rows_requested": rows_requested,
         "row_errors": list(row_errors or []),
         "scope": {"included_locales": included, "excluded_locales": excluded},
@@ -405,6 +413,15 @@ def main() -> int:
         default=None,
         help="run at most N rows after scope filtering, in manifest order",
     )
+    ap.add_argument(
+        "--prompt-variant",
+        default=PROMPT_VERSION,
+        choices=PROMPT_VARIANTS,
+        help=(
+            "named prompt variant for --live (default: the shipping variant, "
+            f"{PROMPT_VERSION}); ignored offline, where fixtures replay by sample_id"
+        ),
+    )
     ap.add_argument("--check-regression", action="store_true")
     ap.add_argument(
         "--include-restricted",
@@ -439,6 +456,10 @@ def main() -> int:
     print(exclusion_note(locales, excluded))
     selected = select_rows(manifest_path, set(locales), args.limit)
 
+    # Offline output must not change when the flag is passed: fixtures replay
+    # by sample_id, so the shipping variant is what that run actually used.
+    run_prompt_variant = args.prompt_variant if args.live else PROMPT_VERSION
+
     all_results: dict[str, list[SampleResult]] = {}
     row_errors: list[str] = []
     for name in args.configs.split(","):
@@ -449,6 +470,7 @@ def main() -> int:
             manifest_path=manifest_path,
             images_dir=images_dir,
             limit=args.limit,
+            prompt_variant=run_prompt_variant,
         )
         all_results[name] = results
         row_errors.extend(errors)
@@ -470,7 +492,8 @@ def main() -> int:
                     excluded,
                     mode=mode,
                     provider_model=provider_model,
-                    prompt_version=PROMPT_VERSION,
+                    prompt_version=run_prompt_variant,
+                    prompt_variant=run_prompt_variant,
                     rows_requested=len(selected),
                     row_errors=failed_ids,
                 ),
@@ -488,7 +511,7 @@ def main() -> int:
             all_results,
             mode=mode,
             provider_model=provider_model,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=run_prompt_variant,
         )
         if args.out:
             Path(REPO / args.out).write_text(report, encoding="utf-8")

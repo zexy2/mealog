@@ -229,3 +229,14 @@ def test_offline_evaluate_replays_fixture_without_images(tmp_path, monkeypatch):
 
     assert errors == []
     assert [result.sample_id for result in results] == ["offline_1"]
+
+
+def test_live_scorecard_never_calls_itself_offline_evidence():
+    live = harness.scorecard({}, mode="live", provider_model="gemini-flash-lite-latest")
+    offline = harness.scorecard({}, mode="offline")
+
+    assert "offline evidence" not in live
+    assert "a live observation" in live
+    assert "gemini-flash-lite-latest" in live
+    assert "not comparable to the offline snapshot" in live
+    assert "offline evidence" in offline

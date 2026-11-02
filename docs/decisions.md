@@ -512,3 +512,36 @@ a named reason until it is done. The pack's evaluation numbers (the Turkish
 retrieval variants and the three Turkish golden samples) are absent from a
 clean-clone run, so a reader who wants them must install the data first. That is
 the intended trade: absent and named, rather than silent and zero.
+
+---
+
+## D22 — The client has no nutrition table; it asks the catalogue
+
+**Decision.** A typed food name is resolved by the server at
+`POST /v1/foods/resolve`. The endpoint runs the same normalization, retrieval
+and closed-set resolution the photo path runs, and answers with either a
+catalogue `food_id`, a portion range and server-computed nutrition, or an
+abstention with zero nutrients and no name. The mobile client holds no
+per-100g values, no `food_id` list, and no substring-to-food rules; a TypeScript
+test fails the build if one comes back. The only client-side number left is a
+calorie the user typed, which is labelled `manual_user_input`.
+
+**Rejected.** Keeping the client table as a "fallback when the server is slow"
+(the previous state): it answered `burger` with `tr.kofte_izgara` at 350 kcal,
+a row the catalogue does not contain, labelled `source_database: TURKOMP`. It
+was not a fallback for a missing server capability — the server answers these
+queries correctly from the real pack — it was a second, worse implementation of
+one.
+
+**Constraint.** D1 says a nutrient number never originates in a model. It says
+nothing about the client, which is how a screen-local table survived several
+passes of review: the invariant check reads the server. The rule is the same for
+every edge — perception may describe, the catalogue may decide, and a user may
+type their own number — so the check had to move to where the violation was.
+
+**Cost.** Adding a food to a plate now needs a round trip, so the plate form has
+a loading state and a failure state it did not have before. Offline demo mode
+answers from `src/demoResolve.ts`, a short fixed demo catalogue whose provenance
+is `DEMO`: it makes the demo coherent without pretending to be the catalogue,
+and it is the one place a demo can still be wrong in the same way the real
+catalogue is right.

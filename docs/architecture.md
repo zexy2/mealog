@@ -34,6 +34,10 @@ flowchart TD
         Accept[Explicit user acceptance]
     end
 
+    subgraph Text[Typed food name]
+        ResolveText[POST /v1/foods/resolve]
+    end
+
     subgraph Data[Data and local evidence]
         Packs[Locale packs: 103 canonical rows]
         Telemetry[Process-local correction events]
@@ -44,11 +48,16 @@ flowchart TD
     Packs --> Retrieve
     Packs --> Nutrition
     Resolve -. catalogue miss only .-> Estimate --> Accept --> Review
+    Text --> ResolveText --> Normalize
+    ResolveText -. D22: the client holds no table .-> Review
     Review -. POST /v1/telemetry/events .-> Telemetry
 ```
 
 The grounded lane implements D1: the vision model observes food descriptions;
-catalogue rows and deterministic arithmetic produce nutrition. D19 and D20 add
+catalogue rows and deterministic arithmetic produce nutrition. A food name a
+person types enters the same pipeline at normalization through
+`POST /v1/foods/resolve` (D22), so the client contributes a string and nothing
+else. D19 and D20 add
 a separate fallback after `ABSTAIN`. That fallback returns broad model-generated
 ranges and assumptions labelled `llm_unverified_estimate`. It is never
 auto-accepted and is excluded from grounded evaluation.

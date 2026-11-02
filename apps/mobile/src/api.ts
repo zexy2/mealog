@@ -107,6 +107,60 @@ export function getSyncClientUserId(): string {
   return resolvedClientUserId || "demo-user";
 }
 
+/** What the catalogue says a typed food name is — or that it does not know. */
+export type FoodResolution = {
+  action: "resolved" | "abstain";
+  query: string;
+  locale: string;
+  food_id: string;
+  name: string | null;
+  candidates: { food_id: string; name: string; score: number }[];
+  confidence: number;
+  grams: number;
+  grams_p10: number;
+  grams_p90: number;
+  portion_source: string;
+  portion_provenance: string;
+  nutrients: { kcal: number; protein_g: number; carb_g: number; fat_g: number };
+  source_database: string | null;
+};
+
+/**
+ * Ask the catalogue what a typed name is. The client has no nutrition table of
+ * its own (D1): this is the only way a typed food becomes a resolved item, and
+ * an `abstain` is a real answer the caller must show as such.
+ *
+ * Demo mode answers from the bundled demo pack, because there is no server to
+ * ask. That data is fixture-shaped and labelled as demo, never as catalogue.
+ */
+export async function resolveFoodName(text: string, locale = "tr"): Promise<FoodResolution> {
+  if (!text.trim()) {
+    throw new Error("Bir yemek adı yazın.");
+  }
+  if (demoMode) {
+    const { resolveDemoFood } = await import("./demoResolve");
+    return resolveDemoFood(text);
+  }
+  const userId = await getClientUserId();
+  const response = await fetch(`${apiBaseUrl}/v1/foods/resolve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-Id": userId,
+    },
+    body: JSON.stringify({ text, locale }),
+  });
+  if (!response.ok) {
+    const message = response.status === 503
+      ? "Bu dilin katalogu bu kurulumda yüklü değil."
+      : response.status === 422
+      ? "Bu yemek adı katalogda aranamadı."
+      : `Katalog sorgulanamadı (${response.status}).`;
+    throw new MealApiError(response.status, message);
+  }
+  return response.json() as Promise<FoodResolution>;
+}
+
 export async function correctMeal(meal: MealLog, corrections: MealCorrection[]): Promise<MealLog> {
   if (demoMode) {
     throw new Error(t("correctionNeedsServer"));

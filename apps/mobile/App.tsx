@@ -13,8 +13,8 @@ import { ErrorState } from "./components/ErrorState";
 import { AbstentionScreen } from "./screens/Abstention";
 import { CaptureScreen } from "./screens/Capture";
 import { DayScreen } from "./screens/Day";
-import { ReviewScreen, TURKISH_FOOD_NUTRITION_MAP } from "./screens/Review";
-import { correctMeal, isDemoMode, MealApiError, submitMeal } from "./src/api";
+import { ReviewScreen } from "./screens/Review";
+import { correctMeal, isDemoMode, MealApiError, resolveFoodName, submitMeal } from "./src/api";
 import { buildMealCorrections, removeSavedMeal } from "./src/corrections";
 import { buildDemoMeal, initialDayMeals } from "./src/demoData";
 import { demoInput, demoScenarioFor } from "./src/demoScenarios";
@@ -60,6 +60,10 @@ function AppContent() {
   const [highlightedMealKey, setHighlightedMealKey] = useState<string | null>(null);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Plate form: the catalogue lookup is a network call, so it has its own state
+  // rather than freezing the whole review screen.
+  const [resolvingPlateItem, setResolvingPlateItem] = useState(false);
+  const [plateItemNotFoundFor, setPlateItemNotFoundFor] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -331,84 +335,6 @@ function AppContent() {
     setQuantityEdits({});
   }
 
-  function handleAddItemToPlate(
-    foodName: string,
-    customKcal?: number,
-  ) {
-    if (!meal) return;
-    const clean = foodName.trim();
-    if (!clean) return;
-
-    const lower = clean.toLowerCase();
-    let matchedFoodId = "USER_CUSTOM";
-    let matchedName = clean;
-    let matchedGrams = 0;
-    let matchedKcal = customKcal ?? 0;
-    let matchedProtein = 0;
-    let matchedCarb = 0;
-    let matchedFat = 0;
-
-    for (const [id, info] of Object.entries(TURKISH_FOOD_NUTRITION_MAP)) {
-      if (lower.includes(info.name.toLowerCase()) || info.name.toLowerCase().includes(lower)) {
-        matchedFoodId = id;
-        matchedName = info.name;
-        matchedGrams = info.default_g;
-        matchedKcal = Math.round((info.kcal_per_100g * info.default_g) / 100);
-        matchedProtein = Math.round((info.protein_g * info.default_g) / 100);
-        matchedCarb = Math.round((info.carb_g * info.default_g) / 100);
-        matchedFat = Math.round((info.fat_g * info.default_g) / 100);
-        break;
-      }
-    }
-
-    if (matchedFoodId === "USER_CUSTOM" && !customKcal) {
-      Alert.alert(
-        "Katalogda bulunamadı",
-        `"${clean}" için besin değeri üretmedik. Katalogdan bir eşleşme seçin veya bildiğiniz kaloriyi kendiniz girin.`,
-      );
-      return;
-    }
-
-    const candidate: Candidate = {
-      food_id: matchedFoodId,
-      name: matchedName,
-      score: 1.0,
-    };
-
-    const newItem = {
-      query: clean,
-      food_id: matchedFoodId,
-      candidates: [candidate],
-      grams: matchedGrams,
-      grams_p10: matchedFoodId === "USER_CUSTOM" ? 0 : Math.round(matchedGrams * 0.8),
-      grams_p90: matchedFoodId === "USER_CUSTOM" ? 0 : Math.round(matchedGrams * 1.2),
-      confidence: matchedFoodId === "USER_CUSTOM" ? 1.0 : 0.95,
-      nutrients: { kcal: matchedKcal, protein_g: matchedProtein, carb_g: matchedCarb, fat_g: matchedFat },
-      portion_provenance: matchedFoodId === "USER_CUSTOM" ? "manual_user_input" : "standard_catalogue_portion",
-      source_database: matchedFoodId === "USER_CUSTOM" ? "Kullanıcı Girişi" : "TURKOMP",
-      portion_source: matchedFoodId === "USER_CUSTOM" ? "manual_user_input" : "catalogue_definition",
-      unit: "porsiyon",
-      quantity: 1,
-    };
-
-    const newItems = [...meal.items, newItem];
-    const newTotals = {
-      kcal: newItems.reduce((sum, it) => sum + (it.nutrients?.kcal || 0), 0),
-      protein_g: Math.round(newItems.reduce((sum, it) => sum + (it.nutrients?.protein_g || 0), 0) * 10) / 10,
-      carb_g: Math.round(newItems.reduce((sum, it) => sum + (it.nutrients?.carb_g || 0), 0) * 10) / 10,
-      fat_g: Math.round(newItems.reduce((sum, it) => sum + (it.nutrients?.fat_g || 0), 0) * 10) / 10,
-    };
-
-    const updatedMeal: MealLog = {
-      ...meal,
-      items: newItems,
-      totals: newTotals,
-    };
-
-    setMeal(updatedMeal);
-    setBanner(`"${matchedName}" tabağa başarıyla eklendi.`);
-  }
-
   function acceptUnverifiedEstimate(itemIndex: number, estimate: UnverifiedNutritionEstimate) {
     if (!meal || !meal.items[itemIndex]) return;
     const candidate: Candidate = {
@@ -452,6 +378,71 @@ function AppContent() {
     setScreen("review");
   }
 
+  /**
+   * The abstention screen's "name it instead" escape hatch. Same rule as
+   * adding to a plate: the catalogue resolves the name, or the answer is no.
+   */
+  async function handleConfirmObservedFood(foodName: string) {
+    if (!meal) return;
+    const clean = foodName.trim();
+    if (!clean) return;
+
+    let resolution: Awaited<ReturnType<typeof resolveFoodName>>;
+    try {
+      resolution = await resolveFoodName(clean, "tr");
+    } catch (error) {
+      Alert.alert(
+        "Katalog sorgulanamadı",
+        error instanceof Error && error.message ? error.message : "Lütfen yeniden deneyin.",
+      );
+      return;
+    }
+
+    if (resolution.action === "abstain" || resolution.food_id === "ABSTAIN") {
+      Alert.alert(
+        "Katalogda Bulunamadı",
+        `"${clean}" yemek kataloğunda yok. Adı değiştirin, bir öneri isteyin ya da kaloriyi kendiniz girin.`,
+      );
+      return;
+    }
+
+    const name = resolution.name ?? clean;
+    const item: MealLog["items"][number] = {
+      query: clean,
+      food_id: resolution.food_id,
+      candidates: resolution.candidates.length > 0
+        ? resolution.candidates
+        : [{ food_id: resolution.food_id, name, score: 1 }],
+      grams: resolution.grams,
+      grams_p10: resolution.grams_p10,
+      grams_p90: resolution.grams_p90,
+      confidence: resolution.confidence,
+      nutrients: resolution.nutrients,
+      source_database: resolution.source_database ?? undefined,
+      portion_source: resolution.portion_source,
+      portion_provenance: resolution.portion_provenance,
+    };
+
+    const items = [...meal.items, item];
+    const totals = items.reduce((sum, it) => ({
+      kcal: sum.kcal + it.nutrients.kcal,
+      protein_g: Math.round((sum.protein_g + it.nutrients.protein_g) * 10) / 10,
+      carb_g: Math.round((sum.carb_g + it.nutrients.carb_g) * 10) / 10,
+      fat_g: Math.round((sum.fat_g + it.nutrients.fat_g) * 10) / 10,
+    }), { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 });
+    setMeal({ ...meal, action: "review", items, totals, question: null });
+    setScreen("review");
+    setBanner(`"${name}" öğüne eklendi.`);
+  }
+
+  /**
+   * Add a typed food to the plate.
+   *
+   * The client does not know what "simit" is, and must not pretend to (D1):
+   * the catalogue decides. A name the catalogue cannot resolve becomes an
+   * abstention card, and the user's own calorie number is the only other way
+   * in — clearly labelled as their input, never as catalogue nutrition.
+   */
   function saveUncaloriedNote(abstainMeal: MealLog, dishName: string) {
     const noteMeal: MealLog = {
       ...abstainMeal,
@@ -508,162 +499,94 @@ function AppContent() {
     setScreen("day");
   }
 
-  function handleConfirmObservedFood(foodName: string) {
-    if (!meal) return;
+  async function handleAddItemToPlate(
+    foodName: string,
+    customKcal?: number,
+    confirmedFoodId?: string,
+  ): Promise<boolean> {
+    if (!meal) return false;
     const clean = foodName.trim();
-    if (!clean) return;
+    if (!clean) return false;
 
-    const lower = clean.toLowerCase();
-    let matchedFoodId: string | null = null;
-    let matchedName = clean;
-    let matchedGrams = 150;
-    let matchedKcal = 0;
-    let matchedProtein = 0;
-    let matchedCarb = 0;
-    let matchedFat = 0;
-
-    for (const [id, info] of Object.entries(TURKISH_FOOD_NUTRITION_MAP)) {
-      if (lower.includes(info.name.toLowerCase()) || info.name.toLowerCase().includes(lower)) {
-        matchedFoodId = id;
-        matchedName = info.name;
-        matchedGrams = info.default_g;
-        matchedKcal = Math.round((info.kcal_per_100g * info.default_g) / 100);
-        matchedProtein = Math.round((info.protein_g * info.default_g) / 100);
-        matchedCarb = Math.round((info.carb_g * info.default_g) / 100);
-        matchedFat = Math.round((info.fat_g * info.default_g) / 100);
-        break;
+    if (customKcal !== undefined) {
+      if (!Number.isFinite(customKcal) || customKcal <= 0 || customKcal > 5000) {
+        Alert.alert("Geçersiz kalori", "1–5000 arası bir kalori değeri girin.");
+        return false;
       }
+      return addResolvedItem({
+        query: clean,
+        food_id: "USER_CUSTOM",
+        candidates: [{ food_id: "USER_CUSTOM", name: clean, score: 1 }],
+        grams: 0,
+        grams_p10: 0,
+        grams_p90: 0,
+        confidence: 1,
+        nutrients: { kcal: customKcal, protein_g: 0, carb_g: 0, fat_g: 0 },
+        portion_provenance: "manual_user_input",
+        portion_source: "manual_user_input",
+        source_database: "Kullanıcı Girişi",
+      }, `"${clean}" ${customKcal} kcal manuel giriş olarak eklendi.`);
+      return Promise.resolve(true);
     }
 
-    if (!matchedFoodId) {
-      if (lower.includes("pizza")) {
-        matchedFoodId = "tr.pizza";
-        matchedName = "Pizza (Karışık)";
-        matchedGrams = 150;
-        matchedKcal = 400;
-        matchedProtein = 16;
-        matchedCarb = 50;
-        matchedFat = 15;
-      } else if (lower.includes("burger") || lower.includes("hamburger")) {
-        matchedFoodId = "tr.kofte_izgara";
-        matchedName = "Burger / Köfte";
-        matchedGrams = 150;
-        matchedKcal = 350;
-        matchedProtein = 22;
-        matchedCarb = 30;
-        matchedFat = 16;
-      } else if (lower.includes("patates") || lower.includes("kızartma")) {
-        matchedFoodId = "tr.patates";
-        matchedName = "Patates Kızartması";
-        matchedGrams = 150;
-        matchedKcal = 312;
-        matchedProtein = 3.5;
-        matchedCarb = 41;
-        matchedFat = 15;
-      } else if (lower.includes("pasta") || lower.includes("makarna")) {
-        matchedFoodId = "tr.manti";
-        matchedName = "Makarna";
-        matchedGrams = 180;
-        matchedKcal = 280;
-        matchedProtein = 9;
-        matchedCarb = 52;
-        matchedFat = 3;
-      } else if (lower.includes("salata")) {
-        matchedFoodId = "tr.coban_salatasi";
-        matchedName = "Çoban Salatası";
-        matchedGrams = 150;
-        matchedKcal = 68;
-        matchedProtein = 1.8;
-        matchedCarb = 6.8;
-        matchedFat = 3.8;
-      } else if (lower.includes("ayran")) {
-        matchedFoodId = "tr.ayran";
-        matchedName = "Ayran";
-        matchedGrams = 200;
-        matchedKcal = 74;
-        matchedProtein = 3.4;
-        matchedCarb = 5.2;
-        matchedFat = 4.0;
-      } else if (lower.includes("ekmek")) {
-        matchedFoodId = "tr.ekmek_beyaz";
-        matchedName = "Ekmek, beyaz";
-        matchedGrams = 50;
-        matchedKcal = 138;
-        matchedProtein = 4.7;
-        matchedCarb = 25;
-        matchedFat = 1.6;
-      } else if (lower.includes("corba") || lower.includes("çorba")) {
-        matchedFoodId = "tr.mercimek_corbasi";
-        matchedName = "Mercimek çorbası";
-        matchedGrams = 250;
-        matchedKcal = 155;
-        matchedProtein = 7.8;
-        matchedCarb = 23.5;
-        matchedFat = 3.5;
-      } else if (lower.includes("pilav")) {
-        matchedFoodId = "tr.pilav";
-        matchedName = "Pirinç pilavı";
-        matchedGrams = 180;
-        matchedKcal = 272;
-        matchedProtein = 5.4;
-        matchedCarb = 50.4;
-        matchedFat = 5.6;
-      } else if (lower.includes("fasulye")) {
-        matchedFoodId = "tr.kuru_fasulye";
-        matchedName = "Kuru fasulye (etli)";
-        matchedGrams = 250;
-        matchedKcal = 295;
-        matchedProtein = 17.2;
-        matchedCarb = 33.0;
-        matchedFat = 10.8;
-      }
-    }
-
-    if (!matchedFoodId) {
+    let resolution: Awaited<ReturnType<typeof resolveFoodName>>;
+    try {
+      setResolvingPlateItem(true);
+      resolution = await resolveFoodName(clean, "tr");
+    } catch (error) {
       Alert.alert(
-        "Katalogda Bulunamadı",
-        `"${clean}" yemek kataloğunda bulunamadı. Lütfen geçerli bir yemek adı yazın (örn. Burger, Pizza, Makarna, Çorba) veya aşağıdaki "Cihaza Manuel Kalori Gir" seçeneğini kullanın.`,
+        "Katalog sorgulanamadı",
+        error instanceof Error && error.message ? error.message : "Lütfen yeniden deneyin.",
       );
-      return;
+      return false;
+    } finally {
+      setResolvingPlateItem(false);
     }
 
-    const candidate: Candidate = {
-      food_id: matchedFoodId,
-      name: matchedName,
-      score: 0.95,
-    };
+    if (resolution.action === "abstain" || resolution.food_id === "ABSTAIN") {
+      // Not a near-miss. The plate form shows the manual-entry branch instead
+      // of inventing a row the catalogue does not have.
+      setPlateItemNotFoundFor(clean);
+      return false;
+    }
 
-    const resolvedItem = {
+    const chosen = confirmedFoodId ?? resolution.food_id;
+    const chosenName = resolution.candidates.find((c) => c.food_id === chosen)?.name
+      ?? resolution.name
+      ?? clean;
+
+    addResolvedItem({
       query: clean,
-      food_id: matchedFoodId,
-      candidates: [candidate],
-      grams: matchedGrams,
-      grams_p10: Math.round(matchedGrams * 0.8),
-      grams_p90: Math.round(matchedGrams * 1.2),
-      confidence: 0.95,
-      nutrients: { kcal: matchedKcal, protein_g: matchedProtein, carb_g: matchedCarb, fat_g: matchedFat },
-      portion_provenance: "standard_catalogue_portion",
-      source_database: "TURKOMP",
-      portion_source: "catalogue_definition",
+      food_id: chosen,
+      candidates: resolution.candidates.length > 0
+        ? resolution.candidates
+        : [{ food_id: chosen, name: chosenName, score: 1 }],
+      grams: resolution.grams,
+      grams_p10: resolution.grams_p10,
+      grams_p90: resolution.grams_p90,
+      confidence: resolution.confidence,
+      nutrients: resolution.nutrients,
+      portion_provenance: resolution.portion_provenance,
+      portion_source: resolution.portion_source,
+      source_database: resolution.source_database ?? undefined,
       unit: "porsiyon",
       quantity: 1,
-    };
+    }, `"${chosenName}" tabağa eklendi.`);
+    return true;
+  }
 
-    const updatedMeal: MealLog = {
-      ...meal,
-      action: "review",
-      items: [resolvedItem],
-      totals: { kcal: matchedKcal, protein_g: matchedProtein, carb_g: matchedCarb, fat_g: matchedFat },
-      degraded: false,
+  function addResolvedItem(item: MealLog["items"][number], message: string): boolean {
+    if (!meal) return false;
+    const newItems = [...meal.items, item];
+    const newTotals = {
+      kcal: newItems.reduce((sum, it) => sum + (it.nutrients?.kcal || 0), 0),
+      protein_g: Math.round(newItems.reduce((sum, it) => sum + (it.nutrients?.protein_g || 0), 0) * 10) / 10,
+      carb_g: Math.round(newItems.reduce((sum, it) => sum + (it.nutrients?.carb_g || 0), 0) * 10) / 10,
+      fat_g: Math.round(newItems.reduce((sum, it) => sum + (it.nutrients?.fat_g || 0), 0) * 10) / 10,
     };
-
-    setMeal(updatedMeal);
-    setSelectedCandidates({ 0: matchedFoodId });
-    setPortionEdits({});
-    setQuantityEdits({ 0: 1 });
-    setExpandedItem(null);
-    setBanner(`"${matchedName}" fotoğrafınıza bağlandı ve kontrol ekranına aktarıldı.`);
-    setScreen("review");
+    setMeal({ ...meal, items: newItems, totals: newTotals });
+    setBanner(message);
+    return true;
   }
 
   function suggestDishToQueue(dishName: string) {

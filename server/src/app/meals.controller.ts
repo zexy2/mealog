@@ -31,6 +31,7 @@ import type { MealLog } from '../domain/models';
 import type { CorrectionRequest, ItemCorrection } from '../pipeline/correction';
 import { recordTelemetryEvent, type TelemetryEventType, type TelemetryItemDelta } from '../pipeline/telemetry';
 
+import { FoodsService } from './foods.service';
 import { MealsService, type MealRequest } from './meals.service';
 import { defaultRateLimiter, InMemoryRateLimiter } from './rate-limiter';
 import { Settings, settings } from '../config';
@@ -193,6 +194,7 @@ function parseCorrectionRequest(body: unknown): CorrectionRequest {
 export class MealsController {
   constructor(
     @Inject(MealsService) private readonly meals: MealsService,
+    @Inject(FoodsService) private readonly foods: FoodsService,
     @Inject(Settings) private readonly runtimeSettings: Settings = settings,
     @Inject(NUTRITION_ESTIMATE_PORT) private readonly nutritionEstimator: NutritionEstimatePort,
   ) {}
@@ -320,6 +322,28 @@ export class MealsController {
       total_kcal_after: typeof body.total_kcal_after === 'number' ? body.total_kcal_after : undefined,
     });
     return { status: 'recorded', event_id: event.event_id };
+  }
+
+  /**
+   * Resolve a typed food name against the locale catalogue.
+   *
+   * This exists so the client never has to hold nutrient numbers of its own
+   * (D1). It answers with a catalogue `food_id`, a portion range and
+   * server-computed nutrition — or abstains. A food outside the pack is not a
+   * near-miss to be guessed at; it is a question.
+   */
+  @Post('foods/resolve')
+  @HttpCode(HttpStatus.OK)
+  resolveFood(@Body() body: unknown): unknown {
+    if (!isRecord(body)) {
+      invalid(HttpStatus.UNPROCESSABLE_ENTITY, 'invalid request body');
+    }
+    const text = optionalString(body.text, 'text');
+    if (text === null || text.trim() === '') {
+      invalid(HttpStatus.UNPROCESSABLE_ENTITY, 'invalid text; a food name is required');
+    }
+    const locale = optionalString(body.locale, 'locale') ?? this.runtimeSettings.default_locale;
+    return this.foods.resolve({ text, locale });
   }
 
   @Post('meals/correct')

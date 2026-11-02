@@ -146,7 +146,11 @@ error taxonomy are in [docs/evaluation.md](docs/evaluation.md).
 **Retrieval itself is strong where the catalogue covers the food:** 38 variants,
 30/30 positive Recall@1, MRR 1.000, 0/8 absent-food false accepts. The
 weak measured layer is perception and closed-set matching over photographed
-food, which is why the gate abstains instead of guessing.
+food, which is why the gate abstains instead of guessing. The decomposition is
+generated, not asserted: `eval/identity_diagnosis.py` charges every truth item
+to a stage and finds **177 of 331 never named by the model** and 39 ranked first
+but refused by the gate, so even a perfect resolver over what was named would
+cap at Item F1 0.64 ([report](docs/identity-diagnosis.md)).
 
 ## Measured failures
 

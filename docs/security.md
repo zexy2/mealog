@@ -166,6 +166,13 @@ by update size, and major updates on development dependencies are not opened:
 - **`@types/node` stays on the runtime's major.** Types that describe a Node
   version the build does not run are a false safety, not an upgrade.
 
+The mechanism matters as much as the list. `update-types` inside a Dependabot
+*group* limits what that group collects; it does not stop a package that does not
+fit the group from arriving as its own pull request — the first run after #427
+proposed `typescript` 7 and `eslint` 10 exactly that way (#433). The `ignore:`
+list is what enforces the policy, and a check of the decision is the next
+Dependabot run, not the config file reading correctly.
+
 Ignoring a major is a decision with a date on it: Dependabot stops asking, and
 the upgrade becomes a planned task in the issue tracker where someone can see
 it. What it does not become is a settled "we will never".

@@ -589,3 +589,51 @@ named but not measured in the published set, and a maintainer must run
 trade: the project's least flattering numbers are now its most tightly checked
 claim, and the gap between what is measured and what is published is stated in
 the same paragraph rather than hidden in a setup step.
+
+## D24 — A live measurement is an observation, never the baseline
+
+**Context.** The harness could already call the real provider with `--live`, but
+it did so by implicitly recording: `record=args.record or args.live` meant a
+measuring run rewrote the committed `eval/fixtures/` files that the offline
+scorecard replays. The scorecard therefore had no stable referent — a live run
+could silently become "the evaluation" — and a provider outage could replace a
+good baseline with an empty one in the same directory. In the other direction
+the live path did not actually work: it passed a `sample_id` instead of image
+bytes, so `make eval-live` failed on its first row while the documentation said
+only that live accuracy was unmeasured.
+
+**Decision.** Measurement and recording are separate operations with separate
+entry points.
+
+- `make eval-live` (or `harness.py --live`) calls the provider, scores what it
+  receives, and writes `eval/reports/scorecard-live.md`. It never writes to
+  `eval/fixtures/`.
+- `make record` (`scripts/record_golden_fixtures.py`) is the only writer of
+  `eval/fixtures/`. It is an explicit, human-initiated act that requires the
+  fetched images and a key.
+- A live scorecard's header names the provider model and the adapter's
+  `PROMPT_VERSION` and states that the run is a dated observation that a later
+  reader cannot reproduce. It is not presented as comparable to the offline
+  snapshot.
+- The published numbers stay the offline snapshot (D4, D23). A live run is
+  evidence about the provider on a date, not a claim about the repository.
+- Per-row failures are isolated and reported. A partial live run still produces
+  a scorecard, exits non-zero, and names the failed rows, because a silent
+  denominator change is worse than a loud failure.
+
+**Rejected.** Make `--live` record by default so a measurement doubles as a
+fixture refresh. It is convenient, and it is exactly how a measurement stops
+being a measurement: the baseline moves whenever someone looks at it, the
+`p3`/`p4` prompt difference would be erased without a recorded decision, and CI
+would compare against whatever the last operator happened to run.
+
+**Constraint.** The committed fixtures were recorded with prompt `p3`; the
+adapter is now `p4`. A live scorecard is therefore also a prompt change, not
+only a model change, and the two numbers must not be put in one table. Two
+golden rows (`jp_0001`, `jp_0002`) come from UEC-Food 256, whose terms allow
+non-commercial research only, and their archive source currently returns HTTP
+403; they are never sent to a third-party API and cap live coverage at 75/77.
+
+**Cost.** A full live run is 77 provider calls at four-second pacing
+(roughly 6–9 minutes, a few cents) and produces a number that will be stale.
+That is the price of keeping the reproducible number reproducible.

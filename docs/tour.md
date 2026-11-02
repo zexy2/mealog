@@ -27,7 +27,7 @@ and [D1](decisions.md#d1--the-model-never-produces-a-nutrient-number).
 
 | # | What | Why it matters | Time |
 | --- | --- | --- | --- |
-| 1 | [`docs/decisions.md`](decisions.md) | 23 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21, D22, D23. | 8 min |
+| 1 | [`docs/decisions.md`](decisions.md) | 24 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21, D22, D23, D24. | 8 min |
 | 2 | [`docs/evaluation.md`](evaluation.md) | What the numbers mean, what they do not, and the tier system behind them. | 6 min |
 | 3 | [`docs/assumptions.md`](assumptions.md) | The claims checked before they were written down, including one that was wrong. | 5 min |
 | 4 | [`docs/architecture.md`](architecture.md) | Topology and the seven grounded stages. | 4 min |
@@ -70,6 +70,7 @@ fail is worth more than a policy paragraph — after `make pack`, `cp` one
 ```sh
 make eval    # writes the scorecard: worst-cuisine MAPE and coverage
 make claims  # fails if README's numbers differ from this checkout's results
+make record  # the only command that rewrites eval/fixtures (D24)
 ```
 
 The scorecard's honest headline is that grounded coverage is **9%** in the

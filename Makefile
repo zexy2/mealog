@@ -1,6 +1,6 @@
 PYTHON ?= $(shell if [ -f $(CURDIR)/server/.venv/bin/python ]; then echo "$(CURDIR)/server/.venv/bin/python"; elif which python3 >/dev/null 2>&1; then echo "python3"; else echo "python"; fi)
 
-.PHONY: install eval eval-live eval-restricted claims test lint invariants licence pack audit status check api db clean
+.PHONY: install eval eval-live eval-restricted record claims test lint invariants licence pack audit status check api db clean
 
 install:
 	cd server && $(PYTHON) -m pip install -e ".[dev]" -q
@@ -9,9 +9,14 @@ install:
 eval:
 	$(PYTHON) eval/harness.py --configs V0,V1,V2,V3 --out eval/reports/scorecard.md
 
-# Live: calls the real vision provider. Requires GEMINI_API_KEY.
+# Live: calls the real vision provider and measures only. Requires GEMINI_API_KEY.
 eval-live:
 	$(PYTHON) eval/harness.py --configs V3 --live --out eval/reports/scorecard-live.md
+
+# Rewrites eval/fixtures from live provider responses. Requires the fetched
+# golden images (scripts/fetch_golden_images.py) and GEMINI_API_KEY.
+record:
+	$(PYTHON) scripts/record_golden_fixtures.py
 
 # Full set, including the licence-restricted catalogue (install it with
 # `make pack`). A local measurement: a clean clone cannot reproduce it, so it is

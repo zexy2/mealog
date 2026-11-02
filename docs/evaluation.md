@@ -305,6 +305,49 @@ coverage, Item F1, and FP rate. `python eval/harness.py --check-regression`
 compares the selected configuration's per-cuisine MAPE with the stored
 baseline and fails if any cuisine bucket gets worse.
 
+## Live measurement
+
+The scorecards above replay recorded fixtures. The harness can also call the
+provider, and that path is deliberately separate from the baseline (D24).
+
+```bash
+python scripts/fetch_golden_images.py       # ~30 MB into data/golden-images
+python eval/harness.py --configs V3 --live --limit 10 \
+  --out eval/reports/scorecard-live.md      # measurement only
+make record                                 # the only writer of eval/fixtures
+```
+
+`--live` uses the same manifest rows as the offline run: each row's image bytes
+and media type are sent to the adapter, or its text when the row is the text
+lane. `--manifest`, `--images-dir` and `--limit` bound the run; `--limit N`
+applies after scope filtering, in manifest order.
+
+A live scorecard differs from the committed one in three ways, and they are
+printed rather than implied:
+
+- the header names the provider model and `PROMPT_VERSION`;
+- it says the run is a dated observation, not reproducible, and not comparable
+  to the offline snapshot;
+- `--summary-json` adds `mode`, `provider_model`, `prompt_version`,
+  `rows_requested` and `row_errors` without changing the existing keys.
+
+A failing row is reported as `row <sample_id> failed: <error>` and the run
+continues; the process exits 1 at the end and prints how many config-rows were
+scored. That behaviour is intentional: a live number with a smaller, silent
+denominator would be worse than no number.
+
+**Two hard limits.** The committed fixtures were recorded with prompt `p3`,
+while the adapter now reports `p4`, so a live scorecard also moves the prompt
+and cannot be read as a model-only comparison. And `jp_0001` / `jp_0002` come
+from UEC-Food 256, whose terms permit non-commercial research only; their
+archive source returns HTTP 403, and the images must not be uploaded to a
+third-party API. Live coverage is therefore at most 75 of the 77 published
+rows, and the two missing rows are stated rather than backfilled.
+
+A live run with no `--limit` over the published scope is 77 calls at the
+adapter's four-second pacing: roughly 6-9 minutes and a few cents. Nothing is
+written to `eval/fixtures/`.
+
 ## Current evidence boundary
 
 The 80 recorded provider responses are real inputs from [#3](https://github.com/zexy2/mealog/issues/3),

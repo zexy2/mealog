@@ -21,18 +21,24 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "server" / "src"))
 
 from mealog import obs                                    # noqa: E402
-from mealog.adapters.vision_gemini import GeminiVision    # noqa: E402
+from mealog.adapters.vision_gemini import (                # noqa: E402
+    PROMPT_VERSION,
+    GeminiVision,
+    configured_model_id,
+)
 from mealog.domain.taxonomy import ErrorCode, UNCLASSIFIED, tag_errors  # noqa: E402
 from mealog.pipeline.nutrition import scale_per_100g      # noqa: E402
 from mealog.locales.loader import PackUnavailableError, load  # noqa: E402
 from mealog.pipeline.runner import CONFIGS, make_vision, run  # noqa: E402
 
 sys.path.insert(0, str(REPO / "eval"))
+from golden_inputs import input_for_row, load_manifest  # noqa: E402
 from locale_scope import evidence_scope, exclusion_note  # noqa: E402
 from metrics import (Bucket, SampleResult, aggregate, aggregate_by_tier, error_distribution,
                      spread, worst_cuisine)  # noqa: E402
 
 GOLDEN = REPO / "eval" / "golden" / "manifest.jsonl"
+IMAGES = REPO / "data" / "golden-images"
 BASELINE = REPO / "eval" / "reports" / "baseline.json"
 
 
@@ -66,18 +72,40 @@ def truth_grams(entry: dict) -> dict[str, float]:
     return grams
 
 
+def select_rows(
+    manifest_path: Path = GOLDEN,
+    locales: set[str] | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    """Golden rows in manifest order, after scope filtering and an optional limit."""
+    rows = load_manifest(manifest_path)
+    if locales is not None:
+        rows = [row for row in rows if row["locale"] in locales]
+    if limit is not None:
+        rows = rows[:limit]
+    return rows
+
+
 def evaluate(
     config_name: str,
+    *,
     live: bool = False,
-    record: bool = False,
     locales: set[str] | None = None,
-) -> list[SampleResult]:
-    """Score one configuration.
+    manifest_path: Path = GOLDEN,
+    images_dir: Path = IMAGES,
+    limit: int | None = None,
+) -> tuple[list[SampleResult], list[str]]:
+    """Score one configuration and return ``(results, row_errors)``.
 
-    `locales` is the declared evidence scope. Rows outside it are not run at
+    ``locales`` is the declared evidence scope. Rows outside it are not run at
     all: they are a scope decision made once in `main`, not a failure to load a
     pack, and conflating the two would let a broken installation masquerade as
     a deliberate exclusion.
+
+    Offline replays fixtures by ``sample_id`` and raises on a broken fixture:
+    that is a repository defect, not a measurement. Live sends image bytes or
+    explicit text from the manifest and isolates input/provider failures per
+    row. A failed live row is named in ``row_errors`` and the rest still run.
     """
     cfg = CONFIGS[config_name]
     if live:
@@ -85,13 +113,9 @@ def evaluate(
     else:
         vision = make_vision("fixture")
     results = []
+    row_errors: list[str] = []
     skipped = set()
-    for line in GOLDEN.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        entry = json.loads(line)
-        if locales is not None and entry["locale"] not in locales:
-            continue
+    for entry in select_rows(manifest_path, locales, limit):
         try:
             truth_kcal(entry)  # the pack must be loadable before anything runs
         except PackUnavailableError:
@@ -99,12 +123,24 @@ def evaluate(
             # market from the scorecard. Say so; do not let the market vanish.
             skipped.add(entry["locale"])
             continue
-        log = run(vision, entry["sample_id"], entry["locale"], cfg,
-                  idempotency_key=f"eval::{config_name}::{entry['sample_id']}")
-        if live and record:
-            if vision.last_input is None:
-                raise RuntimeError("live vision returned no input metadata to record")
-            vision.record_fixture(REPO / "eval" / "fixtures", vision.last_input)
+        if live:
+            sample_id = entry["sample_id"]
+            try:
+                log = run(
+                    vision,
+                    input_for_row(entry, images_dir),
+                    entry["locale"],
+                    cfg,
+                    idempotency_key=f"eval::{config_name}::{sample_id}",
+                )
+            except (OSError, ValueError, RuntimeError) as exc:
+                # Input/provider failure for this row only; keep measuring.
+                print(f"row {sample_id} failed: {exc}", file=sys.stderr)
+                row_errors.append(sample_id)
+                continue
+        else:
+            log = run(vision, entry["sample_id"], entry["locale"], cfg,
+                      idempotency_key=f"eval::{config_name}::{entry['sample_id']}")
         predicted_items = [item for item in log.items if not item.abstained]
         predicted_grams: dict[str, float] = {}
         for item in predicted_items:
@@ -143,7 +179,7 @@ def evaluate(
             "Metrics for those markets are absent, not zero.",
             file=sys.stderr,
         )
-    return results
+    return results, row_errors
 
 
 def _percent(bucket: Bucket, value: float) -> str:
@@ -153,10 +189,31 @@ def _percent(bucket: Bucket, value: float) -> str:
     return f"{value:.1f}%"
 
 
-def scorecard(all_results: dict[str, list[SampleResult]]) -> str:
-    lines = ["# Scorecard", "",
-             "Generated by `make eval` (offline, recorded fixtures).",
-             "Headline metric is the **worst cuisine bucket**, not the mean.", ""]
+def scorecard(
+    all_results: dict[str, list[SampleResult]],
+    *,
+    mode: str = "offline",
+    provider_model: str | None = None,
+    prompt_version: str = PROMPT_VERSION,
+) -> str:
+    lines = ["# Scorecard", ""]
+    if mode == "live":
+        lines += [
+            (
+                "Generated by `make eval-live`: a live provider measurement "
+                f"(model `{provider_model}`, prompt `{prompt_version}`)."
+            ),
+            (
+                "It is not reproducible (provider outputs vary) and is not "
+                "comparable to the offline snapshot."
+            ),
+            "Headline metric is the **worst cuisine bucket**, not the mean.", "",
+        ]
+    else:
+        lines += [
+            "Generated by `make eval` (offline, recorded fixtures).",
+            "Headline metric is the **worst cuisine bucket**, not the mean.", "",
+        ]
 
     lines += ["## Ablation", "",
               "| Config | What it adds | Worst-cuisine MAPE | Mean MAPE | Spread | Coverage | Calorie eligible | Calorie scored | Item F1 | FP rate |",
@@ -231,28 +288,40 @@ def scorecard(all_results: dict[str, list[SampleResult]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def manifest_locales() -> list[str]:
-    """Every locale the golden set mentions, before any scope decision."""
-    return sorted({
-        json.loads(line)["locale"]
-        for line in GOLDEN.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    })
+def manifest_locales(manifest_path: Path = GOLDEN) -> list[str]:
+    """Every locale the selected golden manifest mentions, before scope."""
+    return sorted({row["locale"] for row in load_manifest(manifest_path)})
 
 
 def summary(
     all_results: dict[str, list[SampleResult]],
     included: list[str],
     excluded: list[str],
+    *,
+    mode: str = "offline",
+    provider_model: str | None = None,
+    prompt_version: str | None = PROMPT_VERSION,
+    rows_requested: int | None = None,
+    row_errors: list[str] | None = None,
 ) -> dict:
     """The machine-readable form of the numbers the README quotes.
 
     The README is prose and must stay prose; this is the other half of the
     contract so `scripts/check_readme_claims.py` can compare the two instead of
     trusting the person who last edited the paragraph.
+
+    ``mode``/``provider_model``/``prompt_version`` describe how the run was
+    produced. ``rows_requested`` is the manifest row count after scope and
+    ``--limit``; ``row_errors`` names live rows that failed without stopping the
+    run.
     """
     out: dict = {
         "generator": "eval/harness.py",
+        "mode": mode,
+        "provider_model": provider_model,
+        "prompt_version": prompt_version,
+        "rows_requested": rows_requested,
+        "row_errors": list(row_errors or []),
         "scope": {"included_locales": included, "excluded_locales": excluded},
         "configs": {},
     }
@@ -317,9 +386,22 @@ def main() -> int:
     ap.add_argument("--out", default=None)
     ap.add_argument("--live", action="store_true")
     ap.add_argument(
-        "--record",
-        action="store_true",
-        help="record live provider observations into eval/fixtures/",
+        "--manifest",
+        type=Path,
+        default=GOLDEN,
+        help="JSONL golden manifest (default: eval/golden/manifest.jsonl)",
+    )
+    ap.add_argument(
+        "--images-dir",
+        type=Path,
+        default=IMAGES,
+        help="directory holding manifest image_filename files (default: data/golden-images)",
+    )
+    ap.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="run at most N rows after scope filtering, in manifest order",
     )
     ap.add_argument("--check-regression", action="store_true")
     ap.add_argument(
@@ -338,21 +420,40 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    if args.record and not args.live:
-        ap.error("--record requires --live")
+    if args.limit is not None and args.limit < 0:
+        ap.error("--limit cannot be negative")
+
+    manifest_path = args.manifest if args.manifest.is_absolute() else REPO / args.manifest
+    images_dir = args.images_dir if args.images_dir.is_absolute() else REPO / args.images_dir
 
     obs.configure("WARNING")  # keep the scorecard readable; INFO for debugging
 
     # The scope is decided once, before any evaluation runs. A locale the
     # repository cannot distribute is excluded by default so the published
     # snapshot is exactly what a clean clone reproduces (see eval/locale_scope.py).
-    locales, excluded = evidence_scope(manifest_locales(), args.include_restricted)
+    locales, excluded = evidence_scope(
+        manifest_locales(manifest_path), args.include_restricted
+    )
     print(exclusion_note(locales, excluded))
+    selected = select_rows(manifest_path, set(locales), args.limit)
 
-    # `make eval-live` predates the flag and must keep recording by default.
-    all_results = {name: evaluate(name, live=args.live, record=args.record or args.live,
-                                  locales=set(locales))
-                   for name in args.configs.split(",")}
+    all_results: dict[str, list[SampleResult]] = {}
+    row_errors: list[str] = []
+    for name in args.configs.split(","):
+        results, errors = evaluate(
+            name,
+            live=args.live,
+            locales=set(locales),
+            manifest_path=manifest_path,
+            images_dir=images_dir,
+            limit=args.limit,
+        )
+        all_results[name] = results
+        row_errors.extend(errors)
+    failed_ids = list(dict.fromkeys(row_errors))
+
+    mode = "live" if args.live else "offline"
+    provider_model = configured_model_id() if args.live else None
 
     if args.summary_json:
         path = Path(args.summary_json)
@@ -360,20 +461,50 @@ def main() -> int:
             path = REPO / path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps(summary(all_results, locales, excluded), indent=2) + "\n",
+            json.dumps(
+                summary(
+                    all_results,
+                    locales,
+                    excluded,
+                    mode=mode,
+                    provider_model=provider_model,
+                    prompt_version=PROMPT_VERSION,
+                    rows_requested=len(selected),
+                    row_errors=failed_ids,
+                ),
+                indent=2,
+            ) + "\n",
             encoding="utf-8",
         )
         print(f"wrote {args.summary_json}")
 
+    exit_code = 0
     if args.check_regression:
-        return check_regression(all_results)
+        exit_code = check_regression(all_results)
+    else:
+        report = scorecard(
+            all_results,
+            mode=mode,
+            provider_model=provider_model,
+            prompt_version=PROMPT_VERSION,
+        )
+        if args.out:
+            Path(REPO / args.out).write_text(report, encoding="utf-8")
+            print(f"wrote {args.out}")
+        print(report)
 
-    report = scorecard(all_results)
-    if args.out:
-        Path(REPO / args.out).write_text(report, encoding="utf-8")
-        print(f"wrote {args.out}")
-    print(report)
-    return 0
+    if args.live:
+        expected = len(selected) * len(all_results)
+        scored = sum(len(results) for results in all_results.values())
+        detail = f"; failed rows: {', '.join(failed_ids)}" if failed_ids else ""
+        print(
+            f"live evaluation: {scored}/{expected} config-rows scored"
+            f"{detail}",
+            file=sys.stderr,
+        )
+        if failed_ids:
+            exit_code = 1
+    return exit_code
 
 
 if __name__ == "__main__":

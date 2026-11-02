@@ -15,7 +15,7 @@ abstains instead of silently saving the nearest guess.
   <img src="docs/assets/readme-live-review.gif" width="360" alt="Mealog live Gemini flow from photo selection through Review and Day save">
 </p>
 
-<p align="center"><sub>Live Gemini 3.1 Flash-Lite · iOS Simulator · one observed run · playback accelerated 1.7×. Integration evidence, not an accuracy benchmark.</sub></p>
+<p align="center"><sub>Live Gemini 3.1 Flash-Lite (recorded before the current `gemini-3.6-flash` default) · iOS Simulator · one observed run · playback accelerated 1.7×. Integration evidence, not an accuracy benchmark.</sub></p>
 
 ## The problem it solves
 
@@ -97,14 +97,14 @@ The full record is [decision log D1–D23](docs/decisions.md).
 
 | Decision | What it buys | What it costs |
 | --- | --- | --- |
-| **The model never produces a nutrient number** ([D1](docs/decisions.md#d1)) | Unknown identity cannot silently receive authoritative nutrition | Low coverage; more questions to the user |
-| **A locale is a data pack, not code** ([D2](docs/decisions.md#d2)) | New markets need no pipeline branches; licence stays explicit | Pack curation and legal review per market |
-| **Worst-cuisine metric, read with coverage** ([D3](docs/decisions.md#d3)) | Distribution shift stays visible instead of hidden by an average | Small buckets are noisy and less flattering |
-| **Restricted data is installed, not committed** ([D21](docs/decisions.md#d21)) | Licence terms stop contradicting the repository's own grant | A clean clone needs one install step for Turkish |
-| **The client asks the catalogue, never guesses** ([D22](docs/decisions.md#d22)) | One place decides what a food is; D1 holds at the screen too | A typed food needs a round trip |
-| **Published numbers are the clean-clone ones** ([D23](docs/decisions.md#d23)) | Every quoted metric is reproducible and checked by `make claims` | The headline is worse, and restricted rows are named but unmeasured |
-| **Expo mobile client, not a web app** ([D9](docs/decisions.md#d9)) | Real camera and native review flow | Device compatibility needs separate runtime verification |
-| **NestJS edge plus Python evaluation harness** ([D12](docs/decisions.md#d12)) | Typed HTTP surface plus reproducible offline measurement | Two runtimes and parity ceremony |
+| **The model never produces a nutrient number** ([D1](docs/decisions.md#d1--the-model-never-produces-a-nutrient-number)) | Unknown identity cannot silently receive authoritative nutrition | Low coverage; more questions to the user |
+| **A locale is a data pack, not code** ([D2](docs/decisions.md#d2--a-locale-is-a-data-pack-not-code)) | New markets need no pipeline branches; licence stays explicit | Pack curation and legal review per market |
+| **Worst-cuisine metric, read with coverage** ([D3](docs/decisions.md#d3--headline-metric-is-the-worst-cuisine-and-accuracy-is-read-with-coverage)) | Distribution shift stays visible instead of hidden by an average | Small buckets are noisy and less flattering |
+| **Restricted data is installed, not committed** ([D21](docs/decisions.md#d21--restricted-catalogue-data-is-installed-not-committed)) | Licence terms stop contradicting the repository's own grant | A clean clone needs one install step for Turkish |
+| **The client asks the catalogue, never guesses** ([D22](docs/decisions.md#d22--the-client-has-no-nutrition-table-it-asks-the-catalogue)) | One place decides what a food is; D1 holds at the screen too | A typed food needs a round trip |
+| **Published numbers are the clean-clone ones** ([D23](docs/decisions.md#d23--the-published-snapshot-is-what-a-clean-clone-reproduces)) | Every quoted metric is reproducible and checked by `make claims` | The headline is worse, and restricted rows are named but unmeasured |
+| **Expo mobile client, not a web app** ([D9](docs/decisions.md#d9--mobile-is-expo--react-native-demoable-without-a-key)) | Real camera and native review flow | Device compatibility needs separate runtime verification |
+| **NestJS edge plus Python evaluation harness** ([D12](docs/decisions.md#d12--nodejs--typescript-backend-nestjs-edge-python-eval-harness)) | Typed HTTP surface plus reproducible offline measurement | Two runtimes and parity ceremony |
 
 ## Evidence snapshot
 
@@ -115,7 +115,8 @@ project, not because they are flattering.
 **The snapshot is what a clean clone reproduces.** It covers the two locale
 packs the repository can redistribute (`en_US`, `ja_JP`). The licence-restricted
 Turkish catalogue adds 3 golden rows and 107 retrieval variants and is excluded
-here, so `make eval` on a fresh checkout produces exactly these numbers.
+here, so on a fresh checkout `make install && make eval` produces exactly these
+numbers.
 `make claims` re-runs both evaluations and fails if this section disagrees with
 them.
 
@@ -144,7 +145,7 @@ food, which is why the gate abstains instead of guessing.
 | --- | --- | --- |
 | Occluded photographed counts | Two stacked simits become `quantity: null`, 100 g with a 65–145 g band, and a count question | Prevents silent undercount but adds review friction |
 | Legume/soup near-neighbours | Some inputs still surface egg, bean, or soup neighbours; low confidence prevents silent commit | Proposed identity can still be wrong |
-| Thin Turkish catalogue | 57 rows; common long-tail dishes are absent | More abstention and correction work |
+| Thin Turkish catalogue | 57 rows once `make pack` installs it (0 on a clean clone); common long-tail dishes are absent | More abstention and correction work |
 | Catalogue availability | The Turkish rows are licence-restricted and installed separately (`make pack`); without them `tr` answers 503 and only `en_US`/`ja_JP` serve | A clone is not a drop-in Turkish demo until the pack is installed |
 | South Asian coverage | n=16, 0% coverage, Item F1 0.00 | Weakest market is unusable in this evaluation set |
 
@@ -199,7 +200,8 @@ data, which keeps its own terms:
   remain `restricted-noncommercial`, and are excluded from the MIT licence.
   Commercial use needs a separate agreement, so the catalogue itself is not
   committed: `locale_packs/tr/` ships the pack metadata and
-  `python scripts/install_restricted_pack.py` installs the rows locally.
+  `python scripts/install_restricted_pack.py --source <directory|zip|url>`
+  installs the rows locally.
 - The Japanese pack is **unverified legacy evaluation data**, not verified MEXT
   data, and is rejected in commercial mode.
 - The US pack identifies USDA FoodData Central as its public-domain source.
@@ -264,15 +266,16 @@ docs/submission/     Original interview deliverable, kept for provenance
 
 ## Contributing
 
-`main` is protected: every change lands through a pull request that passes the
-required `check` job (lint, both test suites, invariant and licence-boundary
-checks, status freshness, the eval regression guard, and the README-claim
-check). There is no bypass, including for the maintainer.
+`main` is protected: every change lands through a pull request that passes CI —
+the `check` job (secret scan, Python lint and tests, architectural invariants,
+licence boundary, status freshness, the eval regression guard, the README-claim
+check, and the pull-request claim-scope gate), plus the `server (node)` and
+`mobile` jobs. There is no bypass, including for the maintainer.
 
 ```sh
 make check     # what CI runs
 make claims    # README numbers vs. this checkout's evaluation
-make pack      # optional: install the licence-restricted Turkish catalogue
+TR_PACK_SOURCE=<directory|zip|url> make pack  # optional: install the licence-restricted Turkish catalogue
 ```
 
 Issues and discussions are open for bug reports, evaluation questions, and

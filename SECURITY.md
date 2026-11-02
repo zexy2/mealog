@@ -49,11 +49,11 @@ Out of scope:
 | Secret scanning of every diff | `scripts/check_secrets.py` in CI | the `check` job fails |
 | Architectural invariants, including that no model output reaches a nutrient field | `scripts/check_invariants.py` | the `check` job fails |
 | Licence boundary (no restricted rows in the tree) | `scripts/check_licence_boundary.py` | the `check` job fails |
-| Dependency review | `npm audit --omit=dev --audit-level=high` on the server workspace | the `check` job fails |
+| Dependency review | `npm audit --omit=dev --audit-level=high` on the server workspace | the `server (node)` job fails |
 | Protected `main`, no bypass | repository ruleset | merge is blocked |
 
 `npm audit` covers the **server workspace**, which is the part that parses
 untrusted images and text. Mobile findings are reported by Dependabot but do not
 fail the build: they are development-time and bundler-time packages, and the
 only practical "fix" is a major Expo upgrade (see
-[docs/security.md](docs/security.md#dependency-policy)).
+[docs/security.md](docs/security.md#8-dependency-policy)).

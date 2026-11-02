@@ -27,7 +27,7 @@ Consumer camera captures (JPEG/PNG/WebP/GIF) embed sensitive binary metadata:
 ### Problem
 Meal photos often contain unintentional background faces (family members, dining companions, bystanders, children, or mirror reflections). Exposing biometric human identities to cloud vision models without explicit biometric consent violates data privacy regulations.
 
-### Implementation & Boundary ([D14](decisions.md#d14))
+### Implementation & Boundary ([D14](decisions.md#d14--privacy-pipeline-boundary-deterministic-edge-exif-sanitization-vs-standalone-rgba-face-blurring))
 - **Standalone Pure-TS Algorithm:** Implemented in `server/src/pipeline/privacy.ts` (`blurFacesInPixelArray`, `detectFaceRegions`) and verified in unit tests (`server/test/face_blurring.test.ts`).
 - **Skin Chrominance & Facial Geometry Detection:** Evaluates $Y > 40$, $77 \le Cb \le 127$, $133 \le Cr \le 173$ along with aspect ratio and facial contour symmetry.
 - **3-Pass Gaussian Box Blurring:** Applies multi-pass horizontal/vertical convolution blur + mosaic pixelation over face bounding boxes.
@@ -96,7 +96,8 @@ only place where a dependency advisory is a security defect rather than a build
 inconvenience.
 
 - **Gate:** `npm audit --omit=dev --audit-level=high` runs in CI for
-  `server/`. A high or critical advisory in a runtime dependency fails `check`.
+  `server/`. A high or critical advisory in a runtime dependency fails the `server (node)`
+  job.
   The current state is **zero** advisories.
 - **Overrides over major upgrades.** Where a transitive package has a patch
   release, `server/package.json` pins it with an `overrides` entry instead of

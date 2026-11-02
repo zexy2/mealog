@@ -18,10 +18,14 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "eval"))
+
+from locale_scope import evidence_scope
 
 DONE, PARTIAL, TODO = "✅ working", "🚧 partial", "⬜ not started"
 
@@ -89,19 +93,24 @@ def probe_photo_ingest() -> Probe:
 
 
 
-def probe_golden() -> tuple[Probe, int, int, int]:
+def probe_golden() -> tuple[Probe, int, int, int, int]:
     manifest = ROOT / "eval/golden/manifest.jsonl"
     rows = [json.loads(x) for x in manifest.read_text(encoding="utf-8").splitlines() if x.strip()]
     fixtures = list((ROOT / "eval/fixtures").glob("*.json"))
     synthetic = sum(1 for f in fixtures
                     if json.loads(f.read_text(encoding="utf-8")).get("_synthetic"))
+    # The published scope is the clean-clone denominator (D23); state both so
+    # "80" cannot read as the number every metric is computed over.
+    locales, _excluded = evidence_scope({row["locale"] for row in rows})
+    published = sum(1 for row in rows if row["locale"] in set(locales))
     state = DONE if (len(rows) >= 60 and synthetic == 0) else PARTIAL
-    note = (f"harness runs offline; {len(rows)} golden samples, "
+    note = (f"harness runs offline; {len(rows)} golden samples "
+            f"({published} in the published scope, D23), "
             f"{synthetic}/{len(fixtures)} fixtures still synthetic")
     if synthetic:
         note += " — [#3](../../issues/3), [#2](../../issues/2)"
     return (Probe("Accuracy evaluation (metrics, test set, taxonomy)", state, note),
-            len(rows), synthetic, len(fixtures))
+            len(rows), published, synthetic, len(fixtures))
 
 
 def probe_finetune() -> Probe:
@@ -201,7 +210,7 @@ def _committed_catalogue_files(root: Path) -> list[str]:
 
 
 def render() -> str:
-    golden, n_golden, n_synth, n_fix = probe_golden()
+    golden, n_golden, n_published, n_synth, n_fix = probe_golden()
     probes = [
         probe_mobile(), probe_photo_ingest(), probe_vision(), golden,
         probe_finetune(), probe_writeup(),
@@ -258,13 +267,15 @@ def render() -> str:
           "| Packs installed separately | "
           + (", ".join(c["installable"]) + " (licence-restricted; `make pack`)" if c["installable"]
              else "none — every defined pack ships") + " |",
-          f"| Golden-set samples | {n_golden} |",
+          f"| Golden-set samples | {n_golden} ({n_published} published) |",
           "",
           "## Verification boundary",
           "",
           "- `make test` and `make lint` verify the repository test and lint suites.",
           "- `python eval/harness.py --check-regression` verifies the committed",
           "  offline evaluation boundary.",
+          "- `make claims` verifies that the README's published numbers match the",
+          "  evaluation on this checkout.",
           "- `python scripts/check_invariants.py` and `python scripts/status.py --check`",
           "  verify architectural constraints and this generated file.",
           "- Hosted CI proves those jobs ran on the committed revision. It does not",

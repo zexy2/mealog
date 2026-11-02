@@ -43,13 +43,20 @@ chosen rather than asserted.
 Three things are worth seeing actually happen. Each is a command that produces
 the evidence, not a claim about it.
 
-**The model cannot reach a nutrient field.**
+**The grounded pipeline cannot turn a model output into a nutrient field.**
 
 ```sh
-make invariants   # fails if any model output can become a nutrient number
+make invariants   # D1/D2 and closed-set rules over the Python reference pipeline
 ```
 
+The script scans `server/src/mealog/**/*.py` only. The served TypeScript pipeline
+also computes nutrients from catalogue rows, but `server/test/pipeline.nutrition.test.ts`
+covers its arithmetic without a structural check equivalent to `make invariants`.
+
 **A locale that cannot be loaded says so, and nothing else breaks.**
+
+Start the API first; [docs/running.md](running.md) §2 has the command
+(`cd server && VISION_PROVIDER=fixture PORT=3000 npm start`). Then:
 
 ```sh
 curl -s -H 'Content-Type: application/json' \
@@ -62,8 +69,14 @@ curl -s -H 'Content-Type: application/json' \
 `tr` is defined but not distributed: its rows are `restricted-noncommercial`
 (D21). The repository ships the definition, installs the data with
 `make pack`, and refuses to let the data back into Git. A guard you can watch
-fail is worth more than a policy paragraph — after `make pack`, `cp` one
-`locale_packs/tr/*.jsonl` out and back in, and run `make licence`.
+fail is worth more than a policy paragraph — after `make pack`, force-add one
+file so it becomes tracked, then run the check:
+
+```sh
+git add -f locale_packs/tr/foods.jsonl
+make licence    # fails: the restricted nutrient rows are tracked
+git reset -- locale_packs/tr/foods.jsonl   # unstage; the file stays gitignored
+```
 
 **The evaluation refuses to flatter itself.**
 

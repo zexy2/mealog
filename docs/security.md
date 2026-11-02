@@ -29,9 +29,9 @@ Meal photos often contain unintentional background faces (family members, dining
 
 ### Implementation & Boundary ([D14](decisions.md#d14--privacy-pipeline-boundary-deterministic-edge-exif-sanitization-vs-standalone-rgba-face-blurring))
 - **Standalone Pure-TS Algorithm:** Implemented in `server/src/pipeline/privacy.ts` (`blurFacesInPixelArray`, `detectFaceRegions`) and verified in unit tests (`server/test/face_blurring.test.ts`).
-- **Skin Chrominance & Facial Geometry Detection:** Evaluates $Y > 40$, $77 \le Cb \le 127$, $133 \le Cr \le 173$ along with aspect ratio and facial contour symmetry.
-- **3-Pass Gaussian Box Blurring:** Applies multi-pass horizontal/vertical convolution blur + mosaic pixelation over face bounding boxes.
-- **Plate Protection Guarantee:** Blurring bounds strictly exclude food foreground regions; meals retain 100% of their pixel sharpness.
+- **Skin Chrominance & Box Heuristics:** Evaluates $Y > 40$, $77 \le Cb \le 127$, $133 \le Cr \le 173$, then keeps skin-block clusters that meet a minimum size, a minimum block count, and an aspect ratio between 0.6 and 2.0.
+- **3-Pass Box Blurring:** Applies three horizontal/vertical box-blur passes inside each candidate box (radius 12 from `blurFacesInPixelArray`); it does not pixelate.
+- **No Food Mask:** `detectFaceRegions` clusters 8×8 blocks whose pixels are mostly skin-chrominance and keeps clusters that pass a box-aspect heuristic. There is no food or foreground mask, so a box can cover skin-toned food and blur it along with the face. The module makes no guarantee that meal pixels are preserved.
 - **Architectural Trade-off & Execution Boundary:** To maintain zero native C++ binary dependencies (`sharp`/`libvips`) across lightweight edge deployments (Alpine Docker/macOS/Linux), pixel-level image decoding and re-encoding is not executed in the synchronous HTTP controller thread. Production biometric protection is designed for client-side camera canvas preprocessing or asynchronous background worker queues.
 
 ---
@@ -69,7 +69,7 @@ Unrestricted vision inference endpoints expose the service to denial-of-service 
 
 ### Implementation
 - **Sliding Window Rate Limiter:** Implemented in `server/src/app/rate-limiter.ts`.
-- **Per-User / Per-IP Thresholds:** Limits requests to a bounded window (default: 30 requests / 60 seconds per user).
+- **Caller-Supplied User Key, No IP Dimension:** `POST /v1/meals` buckets on the caller-supplied `X-User-Id` header (default: 30 requests / 60 seconds); a missing header falls back to the single key `demo-user`, and no request IP is read. This is a prototype limit, not abuse protection: any caller can rotate the header to get a fresh bucket. Production needs identity from a trusted layer before the limiter sees it.
 - **HTTP 429 Standard:** When exceeded, immediately rejects requests with standard `HTTP 429 Too Many Requests` before invoking compute-heavy vision or pipeline stages.
 
 ---
@@ -85,7 +85,7 @@ Unrestricted vision inference endpoints expose the service to denial-of-service 
 ## 7. API Key & Credential Hygiene
 
 1. **Secret Scanning:** `scripts/check_secrets.py` runs in CI on every commit and pull request, scanning all tracked files and incoming diffs against high-entropy patterns and non-placeholder API keys.
-2. **Environment Isolation:** Zero credentials exist in the repository; API keys are provided via runtime environment variables (`GEMINI_API_KEY`) and rotated through Cloud Secret Manager.
+2. **Environment Isolation:** Zero credentials exist in the repository; API keys are provided via runtime environment variables (`GEMINI_API_KEY`). There is no secret-manager integration in this tree. A production deployment would need one (or an equivalent injected-secret mechanism) to rotate keys without redeploying.
 
 ---
 
@@ -126,8 +126,8 @@ inconvenience.
   unsafe. Pinning production ranges is the check that answers the question that
   matters; a build-tool upgrade is a separate, scheduled task.
 - **Dependabot** opens weekly grouped pull requests for `npm` in both
-  workspaces and for GitHub Actions. Grouped, because a dozen one-line bumps a
-  week is how a dependency policy gets muted.
+  workspaces and monthly grouped pull requests for GitHub Actions. Grouped,
+  because a dozen one-line bumps a week is how a dependency policy gets muted.
 
 **Known limitation, stated rather than hidden.** Streaming multipart uploads are
 bounded by the edge parser (10 MiB, MIME and magic-byte checks) but the

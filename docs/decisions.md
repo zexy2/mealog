@@ -68,7 +68,8 @@ Reported honestly rather than smoothed away.
 ## D4 — Offline-reproducible evaluation via recorded fixtures
 
 **Decision.** `make eval` replays recorded provider responses. No key, no network,
-no spend. `make eval-live` hits the real provider and re-records.
+no spend. `make eval-live` calls the real provider and measures only (D24); it
+never writes `eval/fixtures/`.
 
 **Rejected.** Require an API key to reproduce results.
 

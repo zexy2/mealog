@@ -198,7 +198,7 @@ those foods. See [the error taxonomy](docs/evaluation.md#error-taxonomy).
 | Mobile | React Native 0.81, Expo 54, React 19, TypeScript 5.9 |
 | Backend | Node.js 22, NestJS 11, Express, strict TypeScript |
 | Vision | Gemini `gemini-3.6-flash` live, or deterministic recorded fixtures |
-| Retrieval | TF-IDF word and character n-grams (scikit-learn) |
+| Retrieval | TF-IDF word and character n-grams (served: in-house TypeScript port; Python evaluation: scikit-learn) |
 | Evaluation | Python 3.11 harness replaying recorded responses offline |
 | Tests | Vitest + supertest (TypeScript), pytest (Python) |
 | CI | GitHub Actions: Python gates, Node build/lint/test, mobile typecheck + bundle |
@@ -296,7 +296,7 @@ check, and the pull-request claim-scope gate), plus the `server (node)` and
 `mobile` jobs. There is no bypass, including for the maintainer.
 
 ```sh
-make check     # what CI runs
+make check     # local gate: CI also runs check_secrets.py + check_claim_scope.py, not identity_diagnosis --check
 make claims    # README numbers vs. this checkout's evaluation
 TR_PACK_SOURCE=<directory|zip|url> make pack  # optional: install the licence-restricted Turkish catalogue
 ```

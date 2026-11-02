@@ -324,8 +324,8 @@ The error-distribution section lists all twelve codes plus `unclassified` and
 reports sample counts and their share of tagged samples. It is a distribution
 of tags, not a claim that a human reviewed and assigned every specific cause.
 
-For the current V3 replay on **n=77**, the observable tag counts are `E3=61`,
-`E4=69`, `E7=10`, `E12=70`, and `unclassified=74`; the other eight codes are
+For the current V3 replay on **n=77**, the observable tag counts are `E3=43`,
+`E4=72`, `E7=41`, `E12=70`, and `unclassified=74`; the other eight codes are
 zero. Tags are not mutually exclusive, so these counts do not sum to the
 sample count.
 
@@ -352,11 +352,16 @@ The scorecards above replay recorded fixtures. The harness can also call the
 provider, and that path is deliberately separate from the baseline (D24).
 
 ```bash
-python scripts/fetch_golden_images.py       # ~30 MB into data/golden-images
+python scripts/fetch_golden_images.py       # 35 MB, 77 image files into data/golden-images
 python eval/harness.py --configs V3 --live --limit 10 \
   --out eval/reports/scorecard-live.md      # measurement only
 make record                                 # the only writer of eval/fixtures
 ```
+
+The directory holds 77 image files for 80 manifest rows: two of the files are
+the licence-restricted `tr` rows (`tr_0001`, `tr_0002`), and three rows have no
+image bytes (`jp_0001`, `jp_0002`, and `tr_0003`), so the live path cannot send
+them.
 
 `--live` uses the same manifest rows as the offline run: each row's image bytes
 and media type are sent to the adapter, or its text when the row is the text

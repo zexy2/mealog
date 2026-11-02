@@ -65,6 +65,45 @@ def _claim() -> tuple[int, int, int, int]:
     )
 
 
+_ERROR_TAG_SENTENCE = re.compile(
+    r"For the current V3 replay on \*\*n=(?P<n>\d+)\*\*,\s*"
+    r"the observable tag counts are\s+"
+    r"`E3=(?P<E3>\d+)`,\s*"
+    r"`E4=(?P<E4>\d+)`,\s*"
+    r"`E7=(?P<E7>\d+)`,\s*"
+    r"`E12=(?P<E12>\d+)`,\s*and\s+"
+    r"`unclassified=(?P<unclassified>\d+)`"
+)
+
+
+def _error_tag_claim() -> dict[str, int]:
+    match = _ERROR_TAG_SENTENCE.search(DOC.read_text(encoding="utf-8"))
+    assert match is not None, (
+        "the V3 error-tag sentence changed shape; update this test with it, "
+        "rather than deleting the check"
+    )
+    return {name: int(match.group(name)) for name in ("n", "E3", "E4", "E7", "E12", "unclassified")}
+
+
+def test_v3_error_tag_counts_match_a_fresh_run() -> None:
+    """The five observable tag counts must be the ones a replay produces.
+
+    The D25 truth correction changed these counts and left the prose stale. The
+    sentence is parsed by meaning, not by a bare number search, so a reword that
+    silently drops a tag fails here.
+    """
+    claim = _error_tag_claim()
+    locales, _excluded = evidence_scope(harness.manifest_locales())
+    results, _errors = harness.evaluate("V3", locales=set(locales))
+    counts = harness.error_distribution(results)
+
+    assert claim["n"] == len(results)
+    for code in ("E3", "E4", "E7", "E12", "unclassified"):
+        assert claim[code] == counts.get(code, 0), (
+            f"{code}: docs say {claim[code]}, replay has {counts.get(code, 0)}"
+        )
+
+
 def test_calorie_eligibility_sentence_matches_the_manifest_and_scorecard() -> None:
     locales, _excluded = evidence_scope(harness.manifest_locales())
     rows = harness.select_rows(locales=set(locales))

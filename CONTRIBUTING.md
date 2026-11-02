@@ -43,7 +43,8 @@ how to widen a scope mid-flight, is in
 
 ## Dependency updates
 
-Dependabot opens grouped pull requests weekly. They do not need a claim issue,
+Dependabot opens grouped pull requests weekly for npm and monthly for GitHub
+Actions. They do not need a claim issue,
 and they are not merged because they are green — they are merged when green
 *and* the change is one a person would have made. `docs/security.md` §8 says
 which advisories are gated (server runtime) and which are reported (mobile
@@ -56,10 +57,14 @@ check hides the real result, so rebase first and read the logs.
 - **A locale is data, not code (D2).** Adding a market means adding a pack
   directory and an eval, not a branch in the pipeline. Nothing in `server/src`
   may reference a locale by name.
-- **The model never produces a nutrient number (D1).** Vision output is
-  observations; nutrition comes from a catalogue `food_id` or the result is
-  `ABSTAIN`. A change that lets a model number reach `nutrients` fails
-  `make invariants`.
+- **The grounded path never produces a nutrient number from the model (D1).**
+  Vision output is observations; nutrition comes from a catalogue `food_id` or
+  the result is `ABSTAIN` (V0 is the deliberate ungrounded baseline that reports
+  the model's own kcal). `make invariants` enforces this producer rule only over
+  the Python reference pipeline (`server/src/mealog/**/*.py`). The served
+  TypeScript pipeline computes nutrients in `server/src/pipeline/nutrition.ts`;
+  `server/test/pipeline.nutrition.test.ts` covers its arithmetic, but no
+  structural check covers the same rule there.
 - **Restricted data is installed, not committed (D21).** Do not commit
   `locale_packs/tr/foods.jsonl` and friends; `make licence` fails if you do,
   and it is part of `check`.

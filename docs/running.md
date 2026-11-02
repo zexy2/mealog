@@ -39,14 +39,7 @@ check and is not device proof.
 
 ## 2. Keyless Node API smoke
 
-The Turkish catalogue is licence-restricted and is not committed. Install it
-once from a source you are entitled to use (see
-[docs/licensing.md](licensing.md)); without it this step answers `503` and
-`en_US` / `ja_JP` keep working.
-
-```sh
-make pack   # TR_PACK_SOURCE=<directory|zip|url> make pack
-```
+Works on a clean clone: `en_US` and `ja_JP` ship in full.
 
 Terminal 1:
 
@@ -66,16 +59,27 @@ curl --fail --silent \
   -H 'Content-Type: application/json' \
   -d '{
     "idempotency_key": "readme-quickstart-1",
-    "sample_id": "tr_0001",
-    "locale": "tr",
+    "sample_id": "n5k_0002",
+    "locale": "en_US",
     "config": "V3"
   }' \
   http://localhost:3000/v1/meals
 ```
 
-Expected: HTTP 200, `action: "review"`, resolved `tr.kuru_fasulye`, and an
-explicit portion band. If port 3000 is occupied, use another `PORT` and the
-same port in both URLs.
+Expected: HTTP 200, `action: "review"`, resolved `us.eggs_scrambled`, a
+65–145 g portion band, and `portion_provenance` naming the catalogue default.
+This works on a clean clone because `en_US` ships in full. If port 3000 is
+occupied, use another `PORT` and the same port in both URLs.
+
+**Turkish variant.** `locale: "tr"` with `sample_id: "tr_0001"` resolves
+`tr.kuru_fasulye` instead, but only after the licence-restricted catalogue is
+installed once from a source you are entitled to use (see
+[docs/licensing.md](licensing.md)). Without it that request answers `503` with
+the locale and reason, while `en_US` and `ja_JP` keep working:
+
+```sh
+make pack   # TR_PACK_SOURCE=<directory|zip|url> make pack
+```
 
 ## 3. Optional live Gemini integration
 

@@ -37,7 +37,16 @@ ISSUE_REF = re.compile(
     r"(?:[*_]*\s*:?[ \t]*[*_]*)\s*#(\d+)",
     re.IGNORECASE,
 )
-SCOPE_BLOCK = re.compile(r"##\s*Scope.*?\n(.*?)(?=\n##\s|\Z)", re.DOTALL | re.IGNORECASE)
+# A *heading line*, not the words "## Scope" wherever they appear: an issue that
+# describes this rule in prose ("a claim issue with a `## Scope` section") was
+# read as scopeless because the prose matched first (issue #424).
+# The heading may carry a trailing title (the issue template's
+# "## Scope — files I will modify"), so it is "Scope" followed by anything but a
+# bracketed GitHub reference such as "[#12]".
+SCOPE_BLOCK = re.compile(
+    r"^#{1,6}[ \t]*Scope(?![\w-])(?![^\n]*\[#\d+\])[^\n]*\n(.*?)(?=^#{1,6}[ \t]|\Z)",
+    re.DOTALL | re.MULTILINE | re.IGNORECASE,
+)
 PATHS = re.compile(r"`([^`]+)`")
 # Root-level files that carry no extension but are still real paths. Without
 # this, `- \`Makefile\`` was silently dropped from a claim, and the gate then
@@ -104,6 +113,29 @@ def _looks_like_path(candidate: str) -> bool:
     return bool(re.fullmatch(r"[\w.\-+@]+", candidate))
 
 
+# Accounts whose pull requests are updates rather than changes to design: the
+# update is its own justification and there is no human to open a claim issue.
+# Everything else about them is still checked — this exemption covers the claim
+# convention only, not the build. See docs/security.md section 8.
+AUTOMATION_AUTHORS = {"dependabot[bot]", "renovate[bot]"}
+
+
+def is_automation(author: str | None) -> bool:
+    return (author or "").lower() in AUTOMATION_AUTHORS
+
+
+def missing_scope_message(issue_number: str) -> str:
+    """The only instruction most authors see, so it names the issue body and
+    shows the heading shape rather than describing it."""
+    return (f"FAIL: issue #{issue_number} declares no machine-readable scope.\n\n"
+            "Add a '## Scope' section to the issue body (edit the issue, not the pull\n"
+            "request) listing each path in backticks:\n\n"
+            "  ## Scope\n\n"
+            "  `server/src/mealog/pipeline/retrieval.py`\n"
+            "  `eval/`\n\n"
+            "Then re-run this check; no rebase is needed for a body-only edit.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pr", type=int, default=None)
@@ -138,6 +170,12 @@ def main() -> int:
               "  permissions:\n    contents: read\n    pull-requests: read\n    issues: read")
         return 1
 
+    author = (pr.get("user") or {}).get("login")
+    if is_automation(author):
+        print(f"{author}: automated update — claim check not required. "
+              "The build still has to be green; docs/security.md section 8.")
+        return 0
+
     try:
         issue_number = claim_issue_number(pr.get("body") or "")
     except ValueError as exc:
@@ -159,10 +197,7 @@ def main() -> int:
 
     scope = declared_scope(issue.get("body") or "")
     if not scope:
-        print(f"FAIL: issue #{issue_number} declares no machine-readable scope.\n\n"
-              "Add a '## Scope' section listing each path in backticks:\n"
-              "  - `server/src/mealog/pipeline/retrieval.py`\n"
-              "  - `eval/`")
+        print(missing_scope_message(issue_number))
         return 1
 
     violations = [p for p in changed_files(args.base)

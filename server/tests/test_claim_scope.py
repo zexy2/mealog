@@ -10,6 +10,8 @@ from scripts.check_claim_scope import (
     claim_issue_number,
     claim_issue_references,
     declared_scope,
+    is_automation,
+    missing_scope_message,
 )
 
 
@@ -49,3 +51,71 @@ def test_scope_ignores_prose_but_keeps_backticked_paths() -> None:
             "`scripts/a.py` `tests/` `not a path with spaces`\n")
 
     assert declared_scope(body) == ["README.md", "scripts/a.py", "tests"]
+
+
+@pytest.mark.parametrize("author", ["dependabot[bot]", "Dependabot[bot]", "renovate[bot]"])
+def test_automated_updates_are_exempt_from_the_claim_check(author: str) -> None:
+    """A bot cannot open a claim issue, so the check must not demand one."""
+    assert is_automation(author)
+
+
+@pytest.mark.parametrize("author", ["zexy2", "", None, "someone-dependabot"])
+def test_humans_still_need_a_claim(author: str | None) -> None:
+    """The exemption is a named allow-list, not a pattern that can be spoofed
+    by a login that merely contains the word."""
+    assert not is_automation(author)
+
+
+def test_missing_scope_message_says_where_to_put_it() -> None:
+    """The message is the only instruction most authors see. It has to name the
+    issue body, not the pull request body, and show the heading shape."""
+    message = missing_scope_message("424")
+
+    assert "#424" in message
+    assert "edit the issue, not the pull" in message
+    assert "## Scope" in message
+    assert declared_scope("## Scope\n\n`scripts/a.py`") == ["scripts/a.py"], \
+        "the shape the message recommends must be the shape the parser reads"
+
+
+def test_inline_mention_of_scope_does_not_shadow_the_real_section() -> None:
+    """Issue #424 described 'the `## Scope` section' in its Why paragraph. The
+    parser matched that sentence instead of the heading and reported the issue
+    as scopeless, so a correct issue was rejected."""
+    body = (
+        "## Why\n\n"
+        "The check requires a claim issue with a `## Scope` section — a rule that\n"
+        "cannot be satisfied by a bot.\n\n"
+        "## What\n\n"
+        "- exempt bots\n\n"
+        "## Scope\n\n"
+        "`scripts/check_claim_scope.py`\n"
+        "`server/tests/test_claim_scope.py`\n"
+    )
+
+    assert declared_scope(body) == ["scripts/check_claim_scope.py",
+                                    "server/tests/test_claim_scope.py"]
+
+
+@pytest.mark.parametrize("heading", ["## Scope", "## scope", "##Scope", "### Scope"])
+def test_scope_heading_may_be_any_level_and_case(heading: str) -> None:
+    assert declared_scope(f"{heading}\n\n`Makefile`\n") == ["Makefile"]
+
+
+def test_the_claim_issue_template_actually_parses() -> None:
+    """The template is what a claim author fills in. If the parser cannot read
+    its heading, every claim made from it is rejected."""
+    template = (ROOT / ".github/ISSUE_TEMPLATE/agent-work-claim.md").read_text(
+        encoding="utf-8")
+    filled = template.replace("- `path/one`\n- `path/two`",
+                              "- `server/src/a.ts`\n- `eval/`")
+
+    # Trailing slashes are normalised away; the scope check prefixes them back.
+    assert declared_scope(filled) == ["server/src/a.ts", "eval"]
+
+
+def test_a_link_to_scope_in_another_issue_is_not_the_section() -> None:
+    """A cross-reference heading is prose about another issue's scope."""
+    body = "## Scope [#71](https://github.com/o/r/issues/71)\n\n`README.md`\n\n## Later\n\n`a.py`\n"
+
+    assert declared_scope(body) == []

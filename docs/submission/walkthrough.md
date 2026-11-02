@@ -4,6 +4,14 @@ Target runtime: **8:40**. This is a timed submission recording script.
 Rehearse and re-check every evidence anchor against the recording commit before
 the take.
 
+> **Provenance.** August 2026 recording script, kept as historical evidence.
+> Its numbers are the full-set run with the licence-restricted Turkish
+> catalogue installed (10/80, Item F1 0.15, FP 86.0%, 145 variants), which a
+> clean clone cannot reproduce. The current published snapshot is 77 golden
+> rows and 38 retrieval variants over `en_US`+`ja_JP`, stated in
+> [README → Evidence snapshot](../../README.md#evidence-snapshot) and checked
+> by `make claims` (D23).
+
 The walkthrough shows the Node/TypeScript edge and the Expo client. The Python
 path appears only as the offline evaluation harness. This is a decision-led
 walkthrough: enter a file only to support one boundary, never as a
@@ -200,7 +208,7 @@ made-up provider response or a folder tour.
 > observed on one of those images and got it wrong, three runs of three. One
 > product has two data points; the other has one.
 
-**On-screen proof:** `docs/comparison.md` and the two bounded observation notes.
+**On-screen proof:** `comparison.md` (this directory) and the two bounded observation notes.
 Do not show an inferred competitor architecture or claim an accuracy winner.
 
 ### 6:00–6:55 — Evaluation, ablation, and the regression guard
@@ -227,8 +235,8 @@ the scorecard from the recording commit and keep its SHA-256 visible.
 **On-screen proof:** scorecard SHA, the V0/V3 rows, the retrieval rows, the
 out-of-catalogue result summary, and the passing local regression check. Hosted
 Actions currently does not start because of the repository account's billing
-state, so do not show an old green run as current evidence. Clear the blocker
-and rerun Actions before submission.
+state. CI now runs on GitHub-hosted runners, so show the current run from the
+branch under review instead of an old screenshot.
 
 ### 6:55–7:30 — Security and privacy
 

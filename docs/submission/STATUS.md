@@ -17,7 +17,7 @@
 | Mobile app experience (not a web app) | 🚧 partial | Expo app present; CI typechecks and bundles it; current device execution must be confirmed outside the repository |
 | Photo ingest (end-to-end flow) | ✅ working | API accepts an image; multipart photo-ingest path verified |
 | Real vision provider | ✅ working | 80 recorded non-synthetic provider response(s) |
-| Accuracy evaluation (metrics, test set, taxonomy) | ✅ working | harness runs offline; 80 golden samples, 0/80 fixtures still synthetic |
+| Accuracy evaluation (metrics, test set, taxonomy) | ✅ working | harness runs offline; 80 golden samples (77 in the published scope, D23), 0/80 fixtures still synthetic |
 | Fine-tuning | 🚧 partial | plan in `docs/finetuning-plan.md`; nothing trained (the brief marks implementation optional) |
 | Technical write-up | ✅ working | README + 11 documents; 0 section group(s) still TODO |
 | Loom walkthrough | ⬜ not started | no Loom share URL recorded in README |
@@ -30,13 +30,15 @@
 | Locale packs | 3 (en_US, ja_JP, tr) |
 | Canonical foods (committed) | 46 |
 | Packs installed separately | tr (licence-restricted; `make pack`) |
-| Golden-set samples | 80 |
+| Golden-set samples | 80 (77 published) |
 
 ## Verification boundary
 
 - `make test` and `make lint` verify the repository test and lint suites.
 - `python eval/harness.py --check-regression` verifies the committed
   offline evaluation boundary.
+- `make claims` verifies that the README's published numbers match the
+  evaluation on this checkout.
 - `python scripts/check_invariants.py` and `python scripts/status.py --check`
   verify architectural constraints and this generated file.
 - Hosted CI proves those jobs ran on the committed revision. It does not

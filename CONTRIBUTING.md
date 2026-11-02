@@ -24,7 +24,8 @@ passes the required `check` job:
 | Architectural invariants | `make invariants` |
 | Licence boundary | `make licence` |
 | Generated status is current | `make status` then commit |
-| Eval regression guard | `make eval` |
+| Eval regression guard | `python eval/harness.py --configs V0,V1,V2,V3 --check-regression` (also in `make check`) |
+| README claims match the evaluation | `make claims` |
 | TypeScript build, lint, tests | `cd server && npm run build && npm run lint && npm run test` (`nest build`) |
 | Runtime dependency audit | `make audit` (server only; see `docs/security.md` §8) |
 

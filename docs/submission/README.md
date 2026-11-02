@@ -4,7 +4,7 @@ This folder preserves the material produced during the original interview
 exercise that started Mealog. It is kept for provenance and transparency, not as
 the entry point to the project.
 
-**Start with the root [README](../README.md) instead.** Nothing here is needed
+**Start with the root [README](../../README.md) instead.** Nothing here is needed
 to run, read, or evaluate the current code.
 
 | File | What it is | Why it is kept |

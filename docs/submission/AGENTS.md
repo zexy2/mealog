@@ -189,7 +189,7 @@ These come from `docs/decisions.md` and are enforced by `scripts/check_invariant
 ## 10. Bringing a new agent in
 
 Whoever starts an agent on this repository gives it
-[`docs/onboarding-prompt.md`](docs/onboarding-prompt.md) verbatim as its first
+[`onboarding-prompt.md`](onboarding-prompt.md) verbatim as its first
 message. It is short on purpose. An agent that has not read this file will open a
 pull request that fails the scope gate and will not understand why.
 

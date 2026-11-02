@@ -62,13 +62,13 @@ curl -s -H 'Content-Type: application/json' \
 `tr` is defined but not distributed: its rows are `restricted-noncommercial`
 (D21). The repository ships the definition, installs the data with
 `make pack`, and refuses to let the data back into Git. A guard you can watch
-fail is worth more than a policy paragraph — try
-`cp` any `locale_packs/tr/*.jsonl` back in and run `make licence`.
+fail is worth more than a policy paragraph — after `make pack`, `cp` one
+`locale_packs/tr/*.jsonl` out and back in, and run `make licence`.
 
 **The evaluation refuses to flatter itself.**
 
 ```sh
-make eval    # worst-cuisine metric; a bucket may not silently get worse
+make eval    # writes the scorecard: worst-cuisine MAPE and coverage
 make claims  # fails if README's numbers differ from this checkout's results
 ```
 
@@ -113,7 +113,7 @@ same numbers, and `make claims` checks that it still does.
   labelled `DEMO`; the live client never does (D22).
 - **Correction telemetry is a process-local prototype**, and no fine-tuning run
   exists. The fine-tuning plan is a plan.
-- **The Turkish demo needs one install step** (`make pack`) and 164 Python /
+- **The Turkish demo needs one install step** (`TR_PACK_SOURCE=… make pack`) and 164 Python /
   73 TypeScript tests skip, by name, without it.
 
 [README → Remaining limitations](../README.md#remaining-limitations) keeps the

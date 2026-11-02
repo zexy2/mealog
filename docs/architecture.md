@@ -185,3 +185,5 @@ All binding constraints are in [docs/decisions.md](decisions.md).
 - D13-D14: privacy claim narrowed to shipped metadata/text controls.
 - D15-D18: abstention, correction telemetry and human-curated future loop.
 - D19-D20: explicit unverified estimate lane and bounded batch execution.
+- D21-D23: restricted data installed not committed, catalogue-authoritative client,
+  and the clean-clone published snapshot.

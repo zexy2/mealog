@@ -30,7 +30,7 @@ identity labels; they do not contribute calorie truth.
 | 1 | [Wikimedia Commons empty plate](https://commons.wikimedia.org/wiki/File:Empty_plate_with_fork.jpg) | Empty-plate negative control. CC BY 4.0, attribution required. |
 
 Nutrition5k selected plates contain ingredients outside this repository's
-24-food catalogue. The manifest records those source ingredients in
+38-food en_US catalogue. The manifest records those source ingredients in
 `unmapped_source_ingredients`, with their real source masses and provenance,
 rather than silently dropping them. Only catalogue-covered components enter
 `truth.items` and the closed-set evaluator. Nutrition5k does not publish a

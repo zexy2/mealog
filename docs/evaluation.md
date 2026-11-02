@@ -457,6 +457,14 @@ The adapter exposes the model identity it observed:
 `vision_fallback` events also carry `served_model`, `model_version`, and
 `max_elapsed`.
 
+The fallback rung requests `gemini-flash-latest`, the same alias the served Node
+adapter declares in `src/adapters/vision.gemini.ts`; the previous Python value,
+`gemini-2.5-flash-lite`, was retired by the provider ("no longer available to
+new users"), which is why the 2026-11-02 run saw 16 rows reach the fallback and
+fail with a 404. The replacement was not verified live: the key was at HTTP 429
+quota, and later probes returned 404 with empty bodies for every model id, so the
+shared alias is the reason to expect it to work, not a measurement.
+
 The live header names the requested alias and the served model. `--summary-json`
 carries `provider_model_versions` and `provider_model_version`: one observed
 version sets and lists it; several leave `provider_model_version` `null`, list

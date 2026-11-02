@@ -32,7 +32,10 @@ from mealog.pipeline.ports import VisionInput
 
 PROMPT_VERSION = "p4"
 DEFAULT_MODEL = "gemini-flash-lite-latest"
-SECONDARY_MODEL = "gemini-2.5-flash-lite"
+# Must match SECONDARY_MODEL in src/adapters/vision.gemini.ts: both adapters
+# describe one ladder. The previous value, gemini-2.5-flash-lite, was retired by
+# the provider ("no longer available to new users") during the 2026-11-02 run.
+SECONDARY_MODEL = "gemini-flash-latest"
 MODEL_ENV_VAR = "GEMINI_MODEL"
 MAX_ELAPSED_ENV_VAR = "GEMINI_MAX_ELAPSED_SECONDS"
 REQUEST_INTERVAL_SECONDS = 4.0

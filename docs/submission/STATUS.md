@@ -28,7 +28,8 @@
 | | |
 |---|---:|
 | Locale packs | 3 (en_US, ja_JP, tr) |
-| Canonical foods | 103 |
+| Canonical foods | 46 |
+| Packs installed separately | tr (licence-restricted; `make pack`) |
 | Golden-set samples | 80 |
 
 ## Verification boundary

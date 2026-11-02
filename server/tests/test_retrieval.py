@@ -8,6 +8,7 @@ replaces this.
 from copy import deepcopy
 
 import pytest
+from conftest import requires_pack
 
 from mealog.domain.models import CanonicalFood, Nutrients
 from mealog.locales.loader import load
@@ -37,6 +38,7 @@ def top(query: str, locale: str) -> str | None:
 
 # --- defect 1: inflected forms missed the catalogue entirely -----------------
 
+@requires_pack("tr")
 @pytest.mark.parametrize("query", ["pilav", "pilavi", "pirinc pilavi", "sade pirinc pilavi"])
 def test_inflected_forms_reach_the_same_canonical_food(query):
     assert top(query, "tr") == "tr.pilav"
@@ -44,6 +46,7 @@ def test_inflected_forms_reach_the_same_canonical_food(query):
 
 # --- defect 2: negative_alias was loaded but never read ----------------------
 
+@requires_pack("tr")
 def test_known_confusion_is_surfaced_and_still_asked_about():
     """The trap must be recognised, not merely missed.
 
@@ -58,6 +61,7 @@ def test_known_confusion_is_surfaced_and_still_asked_about():
     assert resolve(query, cands, allow_abstain=True).abstained, "accepted instead of asking"
 
 
+@requires_pack("tr")
 @pytest.mark.parametrize("query", ["some baked beans", "baked beans and rice"])
 def test_known_confusion_matches_a_token_bounded_subphrase(query):
     pack = load("tr")
@@ -68,6 +72,7 @@ def test_known_confusion_matches_a_token_bounded_subphrase(query):
     assert resolve(query, cands, allow_abstain=True).abstained
 
 
+@requires_pack("tr")
 def test_known_confusion_does_not_match_inside_a_token():
     pack = load("tr")
 
@@ -76,6 +81,7 @@ def test_known_confusion_does_not_match_inside_a_token():
     assert "tr.kuru_fasulye" not in [c.food_id for c in cands]
 
 
+@requires_pack("tr")
 def test_search_builds_index_from_passed_pack():
     pack = deepcopy(load("tr"))
     pack.foods = {
@@ -93,6 +99,7 @@ def test_search_builds_index_from_passed_pack():
     assert [c.food_id for c in cands[:1]] == ["tr.injected"]
 
 
+@requires_pack("tr")
 def test_changed_pack_content_invalidates_cached_index():
     pack = deepcopy(load("tr"))
     pack.aliases["tr.pilav"] = [*pack.aliases.get("tr.pilav", []), "changed alias"]
@@ -110,6 +117,7 @@ def test_confusion_score_stays_below_the_accept_threshold():
 
 # --- properties any implementation must keep --------------------------------
 
+@requires_pack("tr")
 def test_absent_food_is_never_accepted():
     """Fuzzy matching buys recall by making everything look slightly similar.
     That must not turn an honest abstention into a confident wrong answer."""
@@ -132,6 +140,7 @@ def test_empty_query_returns_no_candidates():
     assert search("", load("en_US")) == []
 
 
+@requires_pack("tr")
 def test_scores_are_ordered_and_bounded():
     pack = load("tr")
     cands = search(fold("mercimek", pack), pack)

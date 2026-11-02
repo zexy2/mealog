@@ -1,6 +1,6 @@
 PYTHON ?= $(shell if [ -f $(CURDIR)/server/.venv/bin/python ]; then echo "$(CURDIR)/server/.venv/bin/python"; elif which python3 >/dev/null 2>&1; then echo "python3"; else echo "python"; fi)
 
-.PHONY: install eval eval-live test lint invariants licence status check api db clean
+.PHONY: install eval eval-live test lint invariants licence pack status check api db clean
 
 install:
 	cd server && $(PYTHON) -m pip install -e ".[dev]" -q
@@ -22,16 +22,20 @@ lint:
 invariants:
 	$(PYTHON) scripts/check_invariants.py
 
-# Advisory until the restricted pack moves behind a licence-gated download.
+# The Turkish catalogue is installed from a licence-gated source; this fails
+# if it ever returns to the tracked tree. See docs/licensing.md.
 licence:
 	$(PYTHON) scripts/check_licence_boundary.py
 
+# Obtain the restricted Turkish catalogue into locale_packs/tr/.
+pack:
+	$(PYTHON) scripts/install_restricted_pack.py --source "$${TR_PACK_SOURCE:?set TR_PACK_SOURCE to a directory, zip, or URL}"
 
 status:
 	$(PYTHON) scripts/status.py
 
 # What CI runs. Run this before opening a PR (docs/submission/AGENTS.md §7).
-check: lint test invariants
+check: lint test invariants licence
 	$(PYTHON) scripts/status.py --check
 	$(PYTHON) eval/harness.py --configs V0,V1,V2,V3 --check-regression
 

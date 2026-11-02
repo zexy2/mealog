@@ -23,3 +23,11 @@ docs/benchmark_photos/
 data/raw_imports/
 *.turkomp
 *.turkomp.csv
+
+# The Turkish catalogue is restricted-noncommercial and is installed from a
+# licence-gated source instead of being committed. Its metadata and text rules
+# stay tracked so the licence terms are visible.
+# python scripts/install_restricted_pack.py --source <dir|zip|https>
+locale_packs/tr/foods.jsonl
+locale_packs/tr/aliases.jsonl
+locale_packs/tr/units.jsonl

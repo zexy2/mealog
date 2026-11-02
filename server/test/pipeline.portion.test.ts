@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CanonicalFood } from '../src/domain/models';
 import { load } from '../src/locales/loader';
+import { pack_installed } from './helpers/packs';
 import {
   DEFAULT_SPREAD,
   LABEL_SERVING_SPREAD,
@@ -63,7 +64,8 @@ describe('parsePortion', () => {
   });
 });
 
-describe('estimate', () => {
+// Catalogue-serving rows live in the licence-restricted Turkish pack.
+(pack_installed('tr') ? describe : describe.skip)('estimate with the Turkish catalogue', () => {
   it.each(catalogueServingRows)(
     'uses the food catalogue serving for %s %s %s',
     (foodId, quantity, unit, grams) => {

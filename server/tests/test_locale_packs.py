@@ -9,20 +9,26 @@ from pathlib import Path
 
 import pytest
 import yaml
+from conftest import requires_pack
 
 from mealog.config import Settings
 from mealog.locales.loader import (
+    CATALOGUE_FILES,
     CommercialUse,
     LicenseTerm,
     RestrictedPackError,
     available,
+    is_pack_complete,
     load,
+    loadable,
     parse_license,
 )
 
 
 @pytest.mark.parametrize("locale", available())
 def test_pack_loads_and_aliases_point_at_real_foods(locale):
+    if not is_pack_complete(Path(__file__).resolve().parents[2] / "locale_packs" / locale):
+        pytest.skip(f"{locale!r} is licence-restricted and not installed; run `make pack`")
     pack = load(locale)
     assert pack.foods, f"{locale} has no foods"
     assert pack.license, f"{locale} must declare a data license"
@@ -35,6 +41,7 @@ def test_pack_loads_and_aliases_point_at_real_foods(locale):
             assert food.density_source.strip()
 
 
+@requires_pack("tr")
 def test_turkish_dotless_i_folds_for_retrieval():
     from mealog.pipeline.normalize import fold
     pack = load("tr")
@@ -62,7 +69,7 @@ def test_brussels_sprouts_uses_the_recorded_half_cup_basis():
 # --- licence vocabulary -----------------------------------------------------
 
 
-@pytest.mark.parametrize("locale", available())
+@pytest.mark.parametrize("locale", loadable())
 def test_every_pack_declares_a_license_from_the_vocabulary(locale):
     """Free text is not checkable. `check_invariants.py` enforces the same rule
     in CI; this fails faster and closer to the code that depends on it."""
@@ -92,7 +99,9 @@ def _use_of(term: LicenseTerm) -> CommercialUse:
 
 
 def _packs_where(use: CommercialUse) -> list[str]:
-    return [loc for loc in available() if load(loc).commercial_use is use]
+    # Only installed catalogues can be loaded; the restricted Turkish rows are
+    # installed locally (docs/licensing.md) and absent from a clean clone.
+    return [loc for loc in loadable() if load(loc).commercial_use is use]
 
 
 # --- enforcement ------------------------------------------------------------
@@ -156,6 +165,8 @@ def test_pack_with_an_unknown_license_string_is_refused(tmp_path):
         "nutrition_source: hand-typed\nlicense: probably fine honestly\n",
         encoding="utf-8")
     (d / "text_rules.yaml").write_text("{}\n", encoding="utf-8")
+    for name in CATALOGUE_FILES:
+        (d / name).write_text("", encoding="utf-8")
 
     assert load("xx_TEST", root=str(tmp_path)).license is LicenseTerm.UNVERIFIED
     with pytest.raises(RestrictedPackError):

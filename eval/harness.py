@@ -24,7 +24,7 @@ from mealog import obs                                    # noqa: E402
 from mealog.adapters.vision_gemini import GeminiVision    # noqa: E402
 from mealog.domain.taxonomy import ErrorCode, UNCLASSIFIED, tag_errors  # noqa: E402
 from mealog.pipeline.nutrition import scale_per_100g      # noqa: E402
-from mealog.locales.loader import load                    # noqa: E402
+from mealog.locales.loader import PackUnavailableError, load  # noqa: E402
 from mealog.pipeline.runner import CONFIGS, make_vision, run  # noqa: E402
 
 sys.path.insert(0, str(REPO / "eval"))
@@ -72,10 +72,18 @@ def evaluate(config_name: str, live: bool = False, record: bool = False) -> list
     else:
         vision = make_vision("fixture")
     results = []
+    skipped = set()
     for line in GOLDEN.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         entry = json.loads(line)
+        try:
+            truth_kcal(entry)  # the pack must be loadable before anything runs
+        except PackUnavailableError:
+            # A licence-restricted catalogue that is not installed removes that
+            # market from the scorecard. Say so; do not let the market vanish.
+            skipped.add(entry["locale"])
+            continue
         log = run(vision, entry["sample_id"], entry["locale"], cfg,
                   idempotency_key=f"eval::{config_name}::{entry['sample_id']}")
         if live and record:
@@ -113,6 +121,13 @@ def evaluate(config_name: str, live: bool = False, record: bool = False) -> list
                 identity_applicable=cfg.grounded,
             ),
         ))
+    if skipped:
+        print(
+            f"[{config_name}] skipped golden samples for locale(s) {', '.join(sorted(skipped))}: "
+            "catalogue not installed (licence-restricted; see docs/licensing.md). "
+            "Metrics for those markets are absent, not zero.",
+            file=sys.stderr,
+        )
     return results
 
 

@@ -61,6 +61,36 @@ class RestrictedPackError(RuntimeError):
     """Raised when a pack's data licence forbids the current deployment mode."""
 
 
+class PackUnavailableError(RuntimeError):
+    """A pack is defined but its catalogue is not installed in this deployment.
+
+    The Turkish rows are `restricted-noncommercial` and are installed from a
+    licence-gated source instead of being committed (docs/licensing.md). The
+    directory and its metadata still ship, so the licence terms stay visible and
+    a missing download fails with an instruction rather than a bare
+    `FileNotFoundError` from a missing foods.jsonl.
+    """
+
+    def __init__(self, locale: str, directory: Path, reason: str) -> None:
+        super().__init__(
+            f"locale pack {locale!r} has no food catalogue at {directory}: {reason}. "
+            "Its data is licence-restricted and is not distributed with the repository; "
+            "see docs/licensing.md for how to obtain it. Locales that do ship "
+            "(en_US, ja_JP) keep working without it."
+        )
+        self.locale = locale
+        self.directory = directory
+        self.reason = reason
+
+
+CATALOGUE_FILES = ("foods.jsonl", "aliases.jsonl", "units.jsonl")
+
+
+def is_pack_complete(directory: Path) -> bool:
+    """True when every file needed to resolve a food is present."""
+    return all((directory / name).is_file() for name in CATALOGUE_FILES)
+
+
 def parse_license(value: object) -> LicenseTerm:
     """Map a `pack.yaml` licence value onto the vocabulary, failing closed.
 
@@ -125,6 +155,8 @@ def _read_pack(locale: str, root: str | None = None) -> LocalePack:
     d = base / locale
     if not d.exists():
         raise FileNotFoundError(f"no locale pack at {d}")
+    if not is_pack_complete(d):
+        raise PackUnavailableError(locale, d, "catalogue files are not present")
 
     meta = yaml.safe_load((d / "pack.yaml").read_text(encoding="utf-8"))
     pack = LocalePack(
@@ -183,3 +215,14 @@ def load(locale: str, root: str | None = None, *,
 def available(root: str | None = None) -> list[str]:
     base = Path(root) if root else PACK_ROOT
     return sorted(p.name for p in base.iterdir() if (p / "pack.yaml").exists())
+
+
+def loadable(root: str | None = None) -> list[str]:
+    """Locales this deployment can serve right now.
+
+    `available` answers "which packs does the repository define", which is a
+    static question. This answers "which can actually be loaded", which depends
+    on whether a restricted catalogue has been installed.
+    """
+    base = Path(root) if root else PACK_ROOT
+    return [name for name in available(root) if is_pack_complete(base / name)]

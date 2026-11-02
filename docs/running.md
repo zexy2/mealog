@@ -39,6 +39,15 @@ check and is not device proof.
 
 ## 2. Keyless Node API smoke
 
+The Turkish catalogue is licence-restricted and is not committed. Install it
+once from a source you are entitled to use (see
+[docs/licensing.md](licensing.md)); without it this step answers `503` and
+`en_US` / `ja_JP` keep working.
+
+```sh
+make pack   # TR_PACK_SOURCE=<directory|zip|url> make pack
+```
+
 Terminal 1:
 
 ```sh

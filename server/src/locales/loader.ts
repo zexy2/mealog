@@ -330,10 +330,51 @@ function enforce_commercial_license(pack: LocalePack): void {
 
 const pack_cache = new Map<string, LocalePack>();
 
+/**
+ * A pack whose contents are deliberately absent from the repository.
+ *
+ * Restricted data (currently the TürKomp-derived Turkish rows) is fetched from
+ * a licence-gated source and never committed. The pack directory, its
+ * metadata and its text rules still ship, so the licence terms stay visible
+ * and a missing download fails with an instruction instead of an exception
+ * from a missing directory.
+ */
+export class PackUnavailableError extends Error {
+  readonly locale: string;
+  readonly directory: string;
+  readonly reason: string;
+
+  constructor(locale: string, directory: string, reason: string) {
+    super(
+      `locale pack '${locale}' has no food catalogue at ${directory}: ${reason}. `
+      + 'Its data is licence-restricted and is not distributed with the repository; '
+      + 'see docs/licensing.md for how to obtain it. Locales that do ship '
+      + `(en_US, ja_JP) keep working without it.`,
+    );
+    this.name = 'PackUnavailableError';
+    this.locale = locale;
+    this.directory = directory;
+    this.reason = reason;
+  }
+}
+
+/** The catalogue files a pack needs before it can resolve anything. */
+const CATALOGUE_FILES = ['foods.jsonl', 'aliases.jsonl', 'units.jsonl'] as const;
+
+export function is_pack_complete(directory: string): boolean {
+  return CATALOGUE_FILES.every((filename) => {
+    const path = join(directory, filename);
+    return existsSync(path) && statSync(path).isFile();
+  });
+}
+
 function read_pack(locale: string, root?: string): LocalePack {
   const base = resolve(root ?? PACK_ROOT);
   const directory = join(base, locale);
   if (!existsSync(directory)) throw new Error(`no locale pack at ${directory}`);
+  if (!is_pack_complete(directory)) {
+    throw new PackUnavailableError(locale, directory, 'catalogue files are not present');
+  }
 
   const key = `${base}\0${locale}\0${content_hash(directory)}`;
   const cached = pack_cache.get(key);
@@ -413,4 +454,16 @@ export function available(root?: string): string[] {
   return readdirSync(base)
     .filter((name) => existsSync(join(base, name, 'pack.yaml')))
     .sort();
+}
+
+/**
+ * Locales that can serve a request right now, i.e. whose catalogue is present.
+ *
+ * `available` answers "which packs does the repository define" and is a
+ * static question; this answers "which can this deployment actually load",
+ * which depends on whether a restricted pack has been obtained.
+ */
+export function loadable(root?: string): string[] {
+  const base = resolve(root ?? PACK_ROOT);
+  return available(base).filter((name) => is_pack_complete(join(base, name)));
 }

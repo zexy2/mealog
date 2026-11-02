@@ -1,4 +1,3 @@
-import { resolve as resolvePath } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,8 +12,13 @@ import {
 import { load } from '../src/locales/loader';
 import { VisionInput, type VisionPort } from '../src/pipeline/ports';
 import { CONFIGS, run } from '../src/pipeline/runner';
+import { pack_installed, TEST_PACK_ROOT } from './helpers/packs';
 
-const PACK_ROOT = resolvePath(__dirname, '../../locale_packs');
+const PACK_ROOT = TEST_PACK_ROOT;
+
+// Turkish fixtures and catalogue are licence-restricted; the catalogue is
+// installed locally, never committed (docs/licensing.md).
+const turkish = pack_installed('tr') ? it : it.skip;
 
 interface StubVision extends VisionPort {
   calls: VisionInput[];
@@ -65,7 +69,7 @@ describe('pipeline runner', () => {
     expect(result.degraded).toBe(false);
   });
 
-  it('reconciles repeated unknown-count observations into one catalogue default', async () => {
+  turkish('reconciles repeated unknown-count observations into one catalogue default', async () => {
     const result = await run(
       visionStub([
         makePerceivedItem({ surface_form: 'ayran', confidence: 1 }),
@@ -90,7 +94,7 @@ describe('pipeline runner', () => {
     });
   });
 
-  it('abstains for unsupported chicken meat instead of logging whole egg', async () => {
+  turkish('abstains for unsupported chicken meat instead of logging whole egg', async () => {
     const result = await run(
       visionStub([
         makePerceivedItem({ surface_form: 'tavuk', portion_hint: '2 parça', count: 2, confidence: 1 }),
@@ -113,7 +117,7 @@ describe('pipeline runner', () => {
     expect(result.action).toBe('ask');
   });
 
-  it('keeps an unobserved simit count null and unscaled', async () => {
+  turkish('keeps an unobserved simit count null and unscaled', async () => {
     const result = await run(
       visionStub([
         makePerceivedItem({ surface_form: 'simit', portion_hint: 'several', confidence: 1 }),
@@ -135,7 +139,7 @@ describe('pipeline runner', () => {
     expect(result.items[0]?.portion_provenance).toBe('catalogue.default_serving_g=100');
   });
 
-  it('sums known counts when duplicate observations carry the same unit', async () => {
+  turkish('sums known counts when duplicate observations carry the same unit', async () => {
     const result = await run(
       visionStub([
         makePerceivedItem({ surface_form: 'simit', portion_hint: '1 adet', confidence: 1 }),
@@ -192,7 +196,7 @@ describe('pipeline runner', () => {
     ]);
   });
 
-  it('does not reconcile different foods', async () => {
+  turkish('does not reconcile different foods', async () => {
     const result = await run(
       visionStub([
         makePerceivedItem({ surface_form: 'simit', confidence: 1 }),
@@ -440,7 +444,7 @@ describe('pipeline runner', () => {
     expect(load('en_US', PACK_ROOT).foods['us.eggs_scrambled']).toBeDefined();
   });
 
-  it('replays the recorded ayran fallback and routes its uncertainty to review', async () => {
+  turkish('replays the recorded ayran fallback and routes its uncertainty to review', async () => {
     const result = await run(
       new FixtureVision(),
       'tr_0003',
@@ -465,7 +469,7 @@ describe('pipeline runner', () => {
     expect(result.action).toBe('review');
   });
 
-  it('preserves two simits and one ayran through normalize, resolve, and portion', async () => {
+  turkish('preserves two simits and one ayran through normalize, resolve, and portion', async () => {
     const result = await run(
       visionStub([
         makePerceivedItem({ surface_form: 'simit', portion_hint: 'two pieces', confidence: 1 }),
@@ -499,7 +503,7 @@ describe('pipeline runner', () => {
     expect(result.action).toBe('review');
   });
 
-  it('keeps an uncountable provider hint unknown and routes it to review', async () => {
+  turkish('keeps an uncountable provider hint unknown and routes it to review', async () => {
     const result = await run(
       visionStub([
         makePerceivedItem({ surface_form: 'simit', portion_hint: 'several', confidence: 1 }),

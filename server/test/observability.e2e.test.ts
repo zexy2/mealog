@@ -18,6 +18,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app/app.module';
 import { configureBodyParsers } from '../src/main';
 import { metrics, type MetricsSnapshot } from '../src/obs';
+import { pack_installed } from './helpers/packs';
+
+// Turkish fixtures need the locally installed, non-committed catalogue.
+const turkish = pack_installed('tr') ? it : it.skip;
 
 describe('observability at the edge', () => {
   let app: NestExpressApplication;
@@ -75,7 +79,7 @@ describe('observability at the edge', () => {
     expect(response.headers['x-request-id']).toMatch(/^[0-9a-f]{12}$/);
   });
 
-  it('counts a successful meal under its route and status', async () => {
+  turkish('counts a successful meal under its route and status', async () => {
     await logMeal({
       idempotency_key: 'obs-success',
       sample_id: 'tr_0001',
@@ -86,7 +90,7 @@ describe('observability at the edge', () => {
     expect((await snapshot()).requests_total['POST /v1/meals 200']).toBe(1);
   });
 
-  it('counts a rejected request rather than dropping it from the record', async () => {
+  turkish('counts a rejected request rather than dropping it from the record', async () => {
     await logMeal({
       idempotency_key: 'obs-bad-config',
       sample_id: 'tr_0001',
@@ -99,7 +103,7 @@ describe('observability at the edge', () => {
     expect(requests['POST /v1/meals 200']).toBeUndefined();
   });
 
-  it('records the gate decision, not just the status code', async () => {
+  turkish('records the gate decision, not just the status code', async () => {
     await logMeal({
       idempotency_key: 'obs-decision',
       sample_id: 'tr_0001',
@@ -112,7 +116,7 @@ describe('observability at the edge', () => {
     expect(Object.values(outcomes)[0]).toBe(1);
   });
 
-  it('times the pipeline stage separately from the request', async () => {
+  turkish('times the pipeline stage separately from the request', async () => {
     await logMeal({
       idempotency_key: 'obs-stages',
       sample_id: 'tr_0001',

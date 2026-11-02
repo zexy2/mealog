@@ -7,6 +7,7 @@ import { CONFIGS, run, type Config } from '../pipeline/runner';
 import { VisionInput, type VisionPort } from '../pipeline/ports';
 import type { MealLog } from '../domain/models';
 import { applyCorrections, type CorrectionRequest } from '../pipeline/correction';
+import { PackUnavailableError } from '../locales/loader';
 
 export const VISION_PORT = Symbol('VISION_PORT');
 export const DEMO_USER_ID = 'demo-user';
@@ -195,6 +196,12 @@ export class MealsService {
       }
       return result;
     } catch (caught) {
+      if (caught instanceof PackUnavailableError) {
+        error(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          `locale '${request.locale}' is defined but its licence-restricted catalogue is not installed in this deployment`,
+        );
+      }
       if (caught instanceof Error && /no locale pack at|unknown locale/i.test(caught.message)) {
         error(HttpStatus.UNPROCESSABLE_ENTITY, `unsupported or unknown locale '${request.locale}'`);
       }

@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { ABSTAIN, makeResolvedItem } from '../src/domain/models';
 import { load } from '../src/locales/loader';
 import { clarificationFor } from '../src/pipeline/clarification';
+import { pack_installed } from './helpers/packs';
 
-const pack = load('tr');
+// The Turkish catalogue is installed locally and never committed; without it
+// the block skips instead of failing the whole file at import time.
+const pack = pack_installed('tr') ? load('tr') : (null as never);
 
-describe('item-scoped clarification metadata', () => {
+(pack_installed('tr') ? describe : describe.skip)('item-scoped clarification metadata', () => {
   it('asks for a count only when the catalogue has a countable serving', () => {
     const item = makeResolvedItem({
       query: 'simit',

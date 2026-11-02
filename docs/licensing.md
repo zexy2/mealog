@@ -75,24 +75,34 @@ no personal identifiers, and no raw provider envelopes. They are included so the
 offline scorecard can be reproduced without an API key. They are evidence of
 integration, not an accuracy benchmark, and are not a data set for training.
 
-## Known open item: the Turkish pack still ships in the tree
+## The Turkish catalogue is installed, not committed
 
-`locale_packs/tr/foods.jsonl` contains selected TürKomp rows. They are excluded
-from the MIT grant above, but they are still committed, which means anyone who
-clones the repository receives restricted data. The intended end state is that
-the pack is fetched from a licence-gated download at runtime, exactly like an
-API key, and never committed.
+`locale_packs/tr/` ships its metadata (`pack.yaml`, `text_rules.yaml`) but not
+its catalogue. The 57 TürKomp-derived rows are excluded from the MIT grant, and
+committing them would hand the data to every cloner, so they are installed from
+a licence-gated source:
 
-`python scripts/check_licence_boundary.py` (`make licence`) detects the current
-state. It runs in CI as an advisory step and is **not** part of `make check`,
-because it is red until the pack moves out of the tree. When that happens, the
-step should become blocking — do not make it blocking by deleting this note.
+```sh
+python scripts/install_restricted_pack.py --source <directory|zip|https-url>
+```
+
+Before that install, `tr` is a defined but unloadable locale: the API answers
+`503` and `en_US` / `ja_JP` are unaffected. After it, nothing changes for the
+rest of the system — the loader reads the same files it always did.
+
+`python scripts/check_licence_boundary.py` (`make licence`) fails if the
+catalogue files ever reach the tracked tree, and is part of `make check` and CI.
+Deleting the files is not enough on its own: a deleted blob stays reachable in
+history, which is why the guard lives in the build rather than in a review
+checklist.
 
 ## Reuse checklist
 
-1. Want the code only? Use it under MIT and delete `locale_packs/tr/`.
+1. Want the code only? Use it under MIT; `locale_packs/tr/` ships metadata only.
 2. Want the Turkish pack? Obtain the required agreement with the authorised
-   institution first — this repository's MIT licence does not provide it.
+   institution first, then install the catalogue with
+   `scripts/install_restricted_pack.py` — this repository's MIT licence does not
+   provide it.
 3. Want the Japanese pack? Treat it as unverified and do not ship it to users.
 4. Want a new market? Add a pack with its own `pack.yaml` and `license` field;
    commercial mode refuses to load packs that are not clearly licensed.

@@ -2,6 +2,7 @@
 from copy import deepcopy
 
 import pytest
+from conftest import requires_pack
 from pydantic import ValidationError
 
 from mealog.domain.models import CanonicalFood, Nutrients, PerceivedItem
@@ -28,6 +29,7 @@ CATALOGUE_SERVING_ROWS = (
 )
 
 
+@requires_pack("tr")
 @pytest.mark.parametrize("food_id, quantity, unit, expected_grams", CATALOGUE_SERVING_ROWS)
 def test_catalogue_serving_wins_for_matching_unit(
     food_id: str,
@@ -44,6 +46,7 @@ def test_catalogue_serving_wins_for_matching_unit(
     assert "source=catalogue_serving" in result.provenance
 
 
+@requires_pack("tr")
 def test_catalogue_serving_uses_one_unit_when_quantity_is_missing():
     pack = load("tr")
     result = estimate(pack.foods["tr.yaprak_sarma"], None, "adet", pack)
@@ -53,6 +56,7 @@ def test_catalogue_serving_uses_one_unit_when_quantity_is_missing():
     assert "per_unit_g=25" in result.provenance
 
 
+@requires_pack("tr")
 def test_catalogue_unit_matching_ignores_accents_case_spaces_and_underscores():
     pack = load("tr")
     tea = estimate(pack.foods["tr.tereyagi"], 1, "cay_kasigi", pack)
@@ -64,6 +68,7 @@ def test_catalogue_unit_matching_ignores_accents_case_spaces_and_underscores():
     assert "source=catalogue_serving" in lahmacun.provenance
 
 
+@requires_pack("tr")
 def test_generic_unit_table_remains_fallback_when_catalogue_names_another_unit():
     food = CanonicalFood(
         food_id="test.food",
@@ -84,6 +89,7 @@ def test_generic_unit_table_remains_fallback_when_catalogue_names_another_unit()
     assert result.provenance == "unit=adet; quantity=2.0; conversion_g=25"
 
 
+@requires_pack("tr")
 def test_vision_count_is_not_explicit_unit_evidence():
     pack = load("tr")
     result = estimate(pack.foods["tr.simit"], 2.0, None, pack, "vision")
@@ -93,6 +99,7 @@ def test_vision_count_is_not_explicit_unit_evidence():
     assert "count_origin=vision" in result.provenance
 
 
+@requires_pack("tr")
 def test_non_water_volume_uses_unknown_density_interval():
     pack = load("tr")
     food = pack.foods["tr.kuru_fasulye"]
@@ -120,6 +127,7 @@ def test_missing_density_widens_volume_interval():
     assert p90 > grams * DEFAULT_SPREAD[1]
 
 
+@requires_pack("tr")
 def test_missing_quantity_does_not_get_explicit_unit_spread():
     pack = load("tr")
     food = pack.foods["tr.kuru_fasulye"]
@@ -164,6 +172,7 @@ def test_density_requires_a_source(density_source):
         )
 
 
+@requires_pack("tr")
 @pytest.mark.parametrize("locale", ["en_US", "tr", "ja_JP"])
 def test_volume_units_never_carry_density(locale: str):
     pack = load(locale)
@@ -284,6 +293,7 @@ class StubVision:
         return self.items
 
 
+@requires_pack("tr")
 def test_runner_reconciles_repeated_unknown_count_observations():
     from mealog.pipeline.runner import CONFIGS, run
 
@@ -308,6 +318,7 @@ def test_runner_reconciles_repeated_unknown_count_observations():
     assert item.portion_source == "catalogue_default"
 
 
+@requires_pack("tr")
 def test_runner_keeps_unobserved_simit_count_null_and_unscaled():
     from mealog.pipeline.runner import CONFIGS, run
 
@@ -329,6 +340,7 @@ def test_runner_keeps_unobserved_simit_count_null_and_unscaled():
     assert item.portion_provenance == "catalogue.default_serving_g=100"
 
 
+@requires_pack("tr")
 def test_runner_sums_known_counts_for_duplicate_observations():
     from mealog.pipeline.runner import CONFIGS, run
 
@@ -388,6 +400,7 @@ def test_runner_portion_branch_is_stable_across_repeated_submissions():
     ]
 
 
+@requires_pack("tr")
 def test_runner_does_not_reconcile_different_foods():
     from mealog.pipeline.runner import CONFIGS, run
 

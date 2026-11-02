@@ -8,8 +8,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app/app.module';
 import type { MealLog } from '../src/domain/models';
 import { configureBodyParsers } from '../src/main';
+import { pack_installed } from './helpers/packs';
 
-describe('POST /v1/meals/correct', () => {
+// The Turkish catalogue is installed locally, never committed.
+const turkish = pack_installed('tr') ? describe : describe.skip;
+
+turkish('POST /v1/meals/correct', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {

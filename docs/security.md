@@ -111,6 +111,13 @@ inconvenience.
   rejected: it re-resolved transitive `react-native` and `metro` packages into a
   tree Metro could not parse, which the mobile bundle gate caught. Mobile
   changes go through an Expo-aware upgrade, not a lockfile rewrite.
+- **Mobile critical/high tooling advisories are pinned, not ignored.**
+  `apps/mobile/package.json` carries targeted `overrides` for `shell-quote`,
+  `brace-expansion`, `image-size`, `js-yaml` and `postcss` (patched releases
+  only, no Expo/React Native downgrade). `npm audit` in `apps/mobile` is now
+  **zero critical/high**. The remaining moderates are `glob`/`minimatch` and
+  Expo CLI trees whose only offered fix is an Expo SDK or React Native major,
+  so they stay reported-not-gated.
 - **Build tooling is out of the gate, deliberately.** `@nestjs/cli`, `eslint`
   and their transitive packages carry advisories that only matter while a
   developer runs a build. They are development dependencies, `--omit=dev`

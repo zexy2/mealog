@@ -17,12 +17,12 @@ jobs:
     # delete the variable to return to the default without another code change.
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # `git diff origin/main...HEAD` needs the merge base, which a shallow
           # clone does not have.
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: vars.CI_RUNNER != 'self-hosted'
         with: { python-version: "3.11" }
       - name: prepare Python 3.11 on self-hosted runner
@@ -92,8 +92,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           # Pinned to the same major as `engines.node` in server/package.json,
           # so the reviewer's machine and CI agree.
@@ -125,8 +125,8 @@ jobs:
       run:
         working-directory: apps/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: ${{ vars.CI_RUNNER != 'self-hosted' && 'npm' || '' }}
@@ -145,8 +145,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         if: vars.CI_RUNNER != 'self-hosted'
         with: { python-version: "3.11" }
       - name: prepare Python 3.11 on self-hosted runner

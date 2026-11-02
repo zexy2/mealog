@@ -89,8 +89,8 @@ fixed prompt properties. That is why this document does not call the difference 
 - No proof that `p5` is better in general, and no significance claim at n=2.
 - No attribution to one of the five bundled changes; the mechanism supports splitting them and that
   has not been done.
-- No measurement of the live perception ceiling. The run has aggregate metrics only, with no per-row
-  prediction artifact, so it cannot say which items `p5` newly perceived.
+- No measurement of the live perception ceiling. The 2026-11-02 runs have aggregate metrics only,
+  with no per-row prediction artifact, so they cannot say which items `p5` newly perceived.
 - No calorie conclusion: one or two scored rows.
 - No statement about a model other than `gemini-3.5-flash-lite` on this day.
 
@@ -98,9 +98,11 @@ fixed prompt properties. That is why this document does not call the difference 
 
 Two changes, and only the first is a prompt experiment. Split the bundle into single-change variants
 and run each against `p4` over the same scope and run count; `--prompt-variant` already supports
-naming them, so this is prompt text plus runs, not new machinery. The second is a harness change:
-record per-row predictions so a variant can be credited with the truth items it perceived, not just
-an aggregate F1. That artifact does not exist, and adding it is outside this issue's scope.
+naming them, so this is prompt text plus runs, not new machinery. The second is a harness change, and
+it now exists: as of [#472](https://github.com/zexy2/mealog/issues/472) the harness can record
+per-row predictions with `--predictions`, so a variant can be credited with the truth items it
+perceived, not just an aggregate F1. No attribution run has been done yet, and the artifact alone
+does not attribute anything; it is the instrument the prompt experiment still needs.
 
 ## Provenance
 

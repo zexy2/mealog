@@ -86,3 +86,37 @@ Unrestricted vision inference endpoints expose the service to denial-of-service 
 
 1. **Secret Scanning:** `scripts/check_secrets.py` runs in CI on every commit and pull request, scanning all tracked files and incoming diffs against high-entropy patterns and non-placeholder API keys.
 2. **Environment Isolation:** Zero credentials exist in the repository; API keys are provided via runtime environment variables (`GEMINI_API_KEY`) and rotated through Cloud Secret Manager.
+
+---
+
+## 8. Dependency policy
+
+The server workspace parses untrusted images and multipart bodies, so it is the
+only place where a dependency advisory is a security defect rather than a build
+inconvenience.
+
+- **Gate:** `npm audit --omit=dev --audit-level=high` runs in CI for
+  `server/`. A high or critical advisory in a runtime dependency fails `check`.
+  The current state is **zero** advisories.
+- **Overrides over major upgrades.** Where a transitive package has a patch
+  release, `server/package.json` pins it with an `overrides` entry instead of
+  moving the framework forward. `multer` is pinned to `2.5.0` this way: NestJS
+  11 accepts that line, and the alternative was a NestJS 12 major upgrade for
+  one multipart parser.
+- **Mobile is reported, not gated, and not blanket-`audit fix`ed.** `apps/mobile`
+  is an Expo app whose advisories sit in bundler and development tooling
+  (`metro`, `@expo/cli`, `jest` transformers); their fix is a major Expo/React
+  Native upgrade, so Dependabot reports them and the build does not turn red for
+  a toolchain advisory. Blindly running `npm audit fix` there was tried and
+  rejected: it re-resolved transitive `react-native` and `metro` packages into a
+  tree Metro could not parse, which the mobile bundle gate caught. Mobile
+  changes go through an Expo-aware upgrade, not a lockfile rewrite.
+- **Dependabot** opens weekly grouped pull requests for `npm` in both
+  workspaces and for GitHub Actions. Grouped, because a dozen one-line bumps a
+  week is how a dependency policy gets muted.
+
+**Known limitation, stated rather than hidden.** Streaming multipart uploads are
+bounded by the edge parser (10 MiB, MIME and magic-byte checks) but the
+server-side limits NestJS passes to `multer` are library defaults. The
+application-level guard is what is tested; a deployment that exposes the edge
+publicly should also set explicit field and file-count limits at the proxy.

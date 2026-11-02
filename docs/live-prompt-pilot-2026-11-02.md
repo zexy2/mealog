@@ -90,3 +90,12 @@ into single-change variants or accept that the result is attributable to the bun
 included); scoring, prompt text, pacing and fixture handling were not altered. The wrapper
 described above only assigned the ineffective `MAX_ELAPSED_SECONDS` constant. No fixture was
 written, and no published offline number changed.
+
+## Follow-up (same day)
+
+The provider recovered later the same day. Four runs of the unmodified harness, two per prompt
+variant, produced the comparison this document could not:
+[live-prompt-comparison-2026-11-02.md](live-prompt-comparison-2026-11-02.md). Its headline is a
+small `p5` Item F1 advantage — 0.41 in both runs against 0.36–0.37 for `p4` — with unchanged
+coverage (12% against 12–13%). The sections above stand as the record of the failed run and are not
+revised.

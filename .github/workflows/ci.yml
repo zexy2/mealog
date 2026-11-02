@@ -77,6 +77,13 @@ jobs:
       - name: eval regression guard
         run: python eval/harness.py --configs V0,V1,V2,V3 --check-regression
 
+      # The README publishes its numbers; that is only honest while they are the
+      # numbers this repository measures. Both evaluations run with the
+      # redistributable-locale scope, so the check is exactly what a clean clone
+      # sees (docs/evaluation.md explains the exclusion).
+      - name: README claims match the evaluation
+        run: python scripts/check_readme_claims.py
+
   # Node gates for the TypeScript backend (port epic #106), running *alongside*
   # the Python gates above rather than replacing them. Nothing Python is
   # removed: the Python backend stays the parity reference until the Wave 3

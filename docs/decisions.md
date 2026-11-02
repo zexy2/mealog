@@ -545,3 +545,47 @@ answers from `src/demoResolve.ts`, a short fixed demo catalogue whose provenance
 is `DEMO`: it makes the demo coherent without pretending to be the catalogue,
 and it is the one place a demo can still be wrong in the same way the real
 catalogue is right.
+
+---
+
+## D23 — The published snapshot is what a clean clone reproduces
+
+**Decision.** The numbers in the README's evidence snapshot are defined as the
+result of the two evaluations on a clean clone, and they are machine-checked.
+`eval/locale_scope.py` excludes any locale whose `pack.yaml` declares
+`restricted-noncommercial` from every published denominator; the harness, the
+retrieval evaluation and the error decomposition all take their scope from that
+one module. `--include-restricted` adds the pack back for a local measurement,
+and `make eval-restricted` writes those scorecards, but those numbers are not
+published. Both evaluations emit `--summary-json`, and
+`scripts/check_readme_claims.py` (`make claims`, also a CI step) parses the
+README section and fails with the exact replacement text when prose and
+measurement disagree. It also rejects a self-contradictory summary
+(`commit + ask > rows`, `scored > eligible`), because otherwise a typo in the
+harness and a typo in the README could agree with each other.
+
+**Rejected.** Keep publishing the full 80-row run and let CI skip the claim
+check when the Turkish catalogue is absent. That preserves the better-looking
+numbers and the project's earlier narrative, but it publishes a claim the
+repository's own tree cannot reproduce: on a fresh checkout the same command
+reports different coverage and F1, and `eval/retrieval_eval.py` raised
+`PackUnavailableError` instead of producing a scorecard. A reader who follows
+the README would conclude either that the numbers are invented or that the
+project does not run. Skipping the check in CI would have converted that into a
+permanent, invisible exemption.
+
+**Constraint.** D21 and D15 put the Turkish rows behind `make pack` because
+their licence is noncommercial and the repository is MIT. Once the data is not
+in the tree, any metric that depends on it is not reproducible from the tree.
+The choice is therefore not whether to scope, but whether to say so and check
+it. Counting the excluded rows from the manifests (which do ship) keeps the
+size of the gap visible without installing the data that creates it.
+
+**Cost.** The published headline gets worse: coverage 12% → 9%, Item F1
+0.15 → 0.13, FP rate 86.0% → 88.2%, and retrieval drops from 145 variants to 38
+(30 positives, 8 negatives). Three golden rows and 107 retrieval variants are
+named but not measured in the published set, and a maintainer must run
+`make eval-restricted` to see the complete picture. That is the intended
+trade: the project's least flattering numbers are now its most tightly checked
+claim, and the gap between what is measured and what is published is stated in
+the same paragraph rather than hidden in a setup step.

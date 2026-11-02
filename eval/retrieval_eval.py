@@ -21,10 +21,13 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "server" / "src"))
 
 from mealog.domain.models import Candidate            # noqa: E402
-from mealog.locales.loader import LocalePack, load    # noqa: E402
+from mealog.locales.loader import LocalePack, PackUnavailableError, load  # noqa: E402
 from mealog.pipeline.normalize import fold            # noqa: E402
 from mealog.pipeline.resolve import resolve           # noqa: E402
 from mealog.pipeline.retrieval import search          # noqa: E402
+
+sys.path.insert(0, str(REPO / "eval"))
+from locale_scope import evidence_scope, exclusion_note  # noqa: E402
 
 VARIANTS = REPO / "eval" / "golden" / "query_variants.jsonl"
 
@@ -33,6 +36,39 @@ def variant_rows() -> list[dict]:
     """Read the variant set fresh so tests and reports see the same rows."""
     return [json.loads(line) for line in VARIANTS.read_text(encoding="utf-8").splitlines()
             if line.strip()]
+
+
+def scoped_rows(
+    include_restricted: bool = False,
+) -> tuple[list[dict], list[str], list[str], dict[str, str]]:
+    """Rows this run may score, plus the locales it deliberately leaves out.
+
+    Two different reasons are kept apart because they mean different things: a
+    licence decision (the repository cannot publish this market) and a broken
+    or missing installation (`--include-restricted` was asked for but the pack
+    is not there). Collapsing them would let the second hide as the first.
+    """
+    rows = variant_rows()
+    included, excluded = evidence_scope({row["locale"] for row in rows}, include_restricted)
+    reasons = {
+        locale: "licence-restricted catalogue; install with `make pack` and pass"
+                " --include-restricted to measure it locally"
+        for locale in excluded
+    }
+
+    # A pack can be in scope but unreadable on this machine; drop it loudly
+    # rather than raising halfway through a run.
+    usable = []
+    for locale in included:
+        try:
+            load(locale)
+        except PackUnavailableError:
+            reasons[locale] = "catalogue not installed in this deployment"
+            excluded.append(locale)
+        else:
+            usable.append(locale)
+    return ([row for row in rows if row["locale"] in usable], usable,
+            sorted(excluded), reasons)
 
 
 def is_positive(row: dict) -> bool:
@@ -120,13 +156,13 @@ class Tally:
     def mrr(self) -> float: return self.rr / self.n if self.n else 0.0
 
 
-def run(impl) -> tuple[Tally, dict[str, Tally], dict[str, Tally], list[str]]:
+def run(impl, rows: list[dict]) -> tuple[Tally, dict[str, Tally], dict[str, Tally], list[str]]:
     overall = Tally()
     by_cuisine: dict[str, Tally] = defaultdict(Tally)
     by_kind: dict[str, Tally] = defaultdict(Tally)
     misses: list[str] = []
 
-    for row in variant_rows():
+    for row in rows:
         if not is_positive(row):
             continue  # absent/confusion rows have separate negative checks
         pack = load(row["locale"])
@@ -144,7 +180,7 @@ def run(impl) -> tuple[Tally, dict[str, Tally], dict[str, Tally], list[str]]:
     return overall, dict(by_cuisine), dict(by_kind), misses
 
 
-def false_accepts(impl) -> tuple[int, int, list[str]]:
+def false_accepts(impl, rows: list[dict]) -> tuple[int, int, list[str]]:
     """How often food we do not carry gets *accepted* anyway.
 
     This is the counterweight to recall and the reason recall alone is not a
@@ -155,7 +191,7 @@ def false_accepts(impl) -> tuple[int, int, list[str]]:
     impossible, and this is where that shows up.
     """
     total, bad, detail = 0, 0, []
-    for row in variant_rows():
+    for row in rows:
         if row.get("expected_food_id") is not None:
             continue
         pack = load(row["locale"])
@@ -170,14 +206,14 @@ def false_accepts(impl) -> tuple[int, int, list[str]]:
     return bad, total, detail
 
 
-def confusion_behaviour_ok() -> list[str]:
+def confusion_behaviour_ok(rows: list[dict]) -> list[str]:
     """A documented trap must surface the confusable food AND still abstain.
 
     Getting the right answer for the wrong reason (returning nothing) counts as
     a failure here — that distinction is the whole point of `negative_alias`.
     """
     problems = []
-    for row in variant_rows():
+    for row in rows:
         if row.get("role") != "confusion":
             continue
         pack = load(row["locale"])
@@ -193,32 +229,83 @@ def confusion_behaviour_ok() -> list[str]:
     return problems
 
 
-def report() -> str:
-    base, base_cu, base_kind, _base_miss = run(baseline_search)
-    new, new_cu, new_kind, new_miss = run(search)
-
-    rows = variant_rows()
+def measure(rows: list[dict]) -> dict:
+    """Run both implementations once; rendering and JSON share the result."""
+    base, base_cu, base_kind, base_miss = run(baseline_search, rows)
+    new, new_cu, new_kind, new_miss = run(search, rows)
+    base_bad, absent_n, base_detail = false_accepts(baseline_search, rows)
+    new_bad, _, new_detail = false_accepts(search, rows)
     positive_n = sum(is_positive(row) for row in rows)
-    negative_n = len(rows) - positive_n
-    tr_positive_n = sum(is_positive(row) and row["locale"] == "tr" for row in rows)
+    return {
+        "rows": len(rows),
+        "positive": positive_n,
+        "negative": len(rows) - positive_n,
+        "confusion": sum(1 for row in rows if row.get("role") == "confusion"),
+        "base": base, "new": new,
+        "base_cu": base_cu, "new_cu": new_cu,
+        "base_kind": base_kind, "new_kind": new_kind,
+        "base_miss": base_miss, "new_miss": new_miss,
+        "base_bad": base_bad, "new_bad": new_bad, "absent_n": absent_n,
+        "base_detail": base_detail, "new_detail": new_detail,
+        "confusion_problems": confusion_behaviour_ok(rows),
+    }
+
+
+def summary(data: dict, included: list[str], excluded: list[str]) -> dict:
+    """The numbers the README quotes, in a form a script can compare."""
+    return {
+        "generator": "eval/retrieval_eval.py",
+        "scope": {"included_locales": included, "excluded_locales": excluded},
+        "variants": data["rows"],
+        "positive_inputs": data["positive"],
+        "negative_cases": data["negative"],
+        "confusion_cases": data["confusion"],
+        "recall_at_1_hits": data["new"].hit1,
+        "recall_at_1_pct": round(data["new"].r1, 1),
+        "recall_at_5_pct": round(data["new"].r5, 1),
+        "mrr": round(data["new"].mrr, 3),
+        "accept_at_1_pct": round(data["new"].acc, 1),
+        "absent_negative_cases": data["absent_n"],
+        "false_accepts_blended": data["new_bad"],
+        "false_accepts_baseline": data["base_bad"],
+    }
+
+
+def report(
+    data: dict,
+    included: list[str],
+    excluded: list[str],
+    reasons: dict[str, str],
+) -> str:
+    base, new = data["base"], data["new"]
+    base_cu, new_cu = data["base_cu"], data["new_cu"]
+    base_kind, new_kind = data["base_kind"], data["new_kind"]
+
     L = ["# Retrieval scorecard", "",
-         (f"{len(rows)} query variants ({tr_positive_n} positive Turkish inputs, "
-          f"{positive_n} positive inputs overall, {negative_n} negative/confusion cases) "
-          "over 3 locale packs. Measured independently of the"),
-         "vision stage — see the header of `eval/retrieval_eval.py` for why.", "",
-         "## Overall", "",
-         "| Implementation | Recall@1 | Recall@5 | MRR | Accept@1 |",
-         "|---|---:|---:|---:|---:|",
-         f"| baseline (token overlap) | {base.r1:.1f}% | {base.r5:.1f}% | {base.mrr:.3f} | {base.acc:.1f}% |",
-         f"| **coverage, word + char n-gram** | **{new.r1:.1f}%** | **{new.r5:.1f}%** | **{new.mrr:.3f}** | **{new.acc:.1f}%** |",
-         "",
-         "*Recall@1* = correct food ranked first. *Accept@1* = ranked first **and**",
-         "confident enough for `resolve.py` to log it without asking. The gap between",
-         "the two is the set of meals that become a one-tap suggestion instead of a",
-         "silent entry — by design, not by accident.",
-         "", "## Per cuisine", "",
-         "| Cuisine | n | Recall@1 before | after | Δ | Accept@1 |",
-         "|---|---:|---:|---:|---:|---:|"]
+         (f"{data['rows']} query variants ({data['positive']} positive inputs, "
+          f"{data['negative']} negative/confusion cases) over "
+          f"{len(included)} locale pack(s): {', '.join(included) or '(none)'}. "
+          "Measured independently of the"),
+         "vision stage — see the header of `eval/retrieval_eval.py` for why."]
+    if excluded:
+        L += ["",
+              "> **Excluded from every denominator below:** "
+              + "; ".join(f"`{locale}` — {reasons.get(locale, 'out of scope')}"
+                          for locale in excluded)
+              + "."]
+    L += ["", "## Overall", "",
+          "| Implementation | Recall@1 | Recall@5 | MRR | Accept@1 |",
+          "|---|---:|---:|---:|---:|",
+          f"| baseline (token overlap) | {base.r1:.1f}% | {base.r5:.1f}% | {base.mrr:.3f} | {base.acc:.1f}% |",
+          f"| **coverage, word + char n-gram** | **{new.r1:.1f}%** | **{new.r5:.1f}%** | **{new.mrr:.3f}** | **{new.acc:.1f}%** |",
+          "",
+          "*Recall@1* = correct food ranked first. *Accept@1* = ranked first **and**",
+          "confident enough for `resolve.py` to log it without asking. The gap between",
+          "the two is the set of meals that become a one-tap suggestion instead of a",
+          "silent entry — by design, not by accident.",
+          "", "## Per cuisine", "",
+          "| Cuisine | n | Recall@1 before | after | Δ | Accept@1 |",
+          "|---|---:|---:|---:|---:|---:|"]
 
     for cuisine in sorted(new_cu):
         b, a = base_cu.get(cuisine, Tally()), new_cu[cuisine]
@@ -233,16 +320,19 @@ def report() -> str:
         L.append(f"| {kind} | {a.n} | {b.r1:.1f}% | {a.r1:.1f}% | "
                  f"{b.r5:.1f}% | {a.r5:.1f}% | {b.mrr:.3f} | {a.mrr:.3f} |")
 
-    problems = confusion_behaviour_ok()
     L += ["", "## Known-confusion behaviour", "",
           "A documented trap must surface the confusable food *and* still abstain,",
           "so the user gets a targeted question instead of a silent regional mismatch.",
           ""]
-    L += ["✅ correct for all confusion cases"] if not problems else \
-         [f"❌ {p}" for p in problems]
+    if data["confusion"] == 0:
+        L += ["— no confusion cases in this scope; they live in the excluded locale(s)."]
+    elif not data["confusion_problems"]:
+        L += ["✅ correct for all confusion cases"]
+    else:
+        L += [f"❌ {p}" for p in data["confusion_problems"]]
 
-    base_bad, absent_n, _ = false_accepts(baseline_search)
-    new_bad, _, new_detail = false_accepts(search)
+    absent_n, new_bad, base_bad = data["absent_n"], data["new_bad"], data["base_bad"]
+    rate = (lambda bad: bad / absent_n * 100) if absent_n else (lambda bad: 0.0)
     L += ["", "## False accepts (the counterweight to recall)", "",
           f"{absent_n} negative queries for food that is deliberately **not** a valid match.",
           "Correct behaviour is to abstain. Recall on its own is a metric you can",
@@ -250,18 +340,18 @@ def report() -> str:
           "",
           "| Implementation | False accepts | Rate |",
           "|---|---:|---:|",
-          f"| baseline | {base_bad}/{absent_n} | {base_bad / absent_n * 100:.1f}% |",
-          f"| **blended** | **{new_bad}/{absent_n}** | **{new_bad / absent_n * 100:.1f}%** |",
+          f"| baseline | {base_bad}/{absent_n} | {rate(base_bad):.1f}% |",
+          f"| **blended** | **{new_bad}/{absent_n}** | **{rate(new_bad):.1f}%** |",
           "",
-          f"Negative cases held: **{negative_n}**. Confusion rows must surface the",
+          f"Negative cases held: **{data['negative']}**. Confusion rows must surface the",
           "documented wrong neighbour and still abstain; absent rows must not accept",
           "their nearest catalogue item."]
-    if new_detail:
-        L += ["", "```"] + new_detail + ["```"]
+    if data["new_detail"]:
+        L += ["", "```"] + data["new_detail"] + ["```"]
 
-    if new_miss:
-        L += ["", f"## Remaining Recall@1 misses ({len(new_miss)})", "", "```"]
-        L += new_miss + ["```"]
+    if data["new_miss"]:
+        L += ["", f"## Remaining Recall@1 misses ({len(data['new_miss'])})", "", "```"]
+        L += data["new_miss"] + ["```"]
 
     L += ["", "---", "",
           "> **Read the headline number with suspicion.** This branch evaluates the",
@@ -275,8 +365,38 @@ def report() -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=None)
+    ap.add_argument(
+        "--include-restricted",
+        action="store_true",
+        help=(
+            "also score locales whose catalogue is licence-restricted and not "
+            "redistributable; the result is a local measurement a clean clone "
+            "cannot reproduce, so it is not what the README publishes"
+        ),
+    )
+    ap.add_argument(
+        "--summary-json",
+        default=None,
+        help="write the README-facing numbers as JSON (used by scripts/check_readme_claims.py)",
+    )
     args = ap.parse_args()
-    text = report()
+
+    rows, included, excluded, reasons = scoped_rows(args.include_restricted)
+    print(exclusion_note(included, excluded))
+    data = measure(rows)
+    text = report(data, included, excluded, reasons)
+
+    if args.summary_json:
+        path = Path(args.summary_json)
+        if not path.is_absolute():
+            path = REPO / path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(summary(data, included, excluded), indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"wrote {args.summary_json}")
+
     if args.out:
         (REPO / args.out).write_text(text, encoding="utf-8")
         print(f"wrote {args.out}\n")

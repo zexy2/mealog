@@ -28,6 +28,7 @@ from mealog.locales.loader import PackUnavailableError, load  # noqa: E402
 from mealog.pipeline.runner import CONFIGS, make_vision, run  # noqa: E402
 
 sys.path.insert(0, str(REPO / "eval"))
+from locale_scope import evidence_scope, exclusion_note  # noqa: E402
 from metrics import (Bucket, SampleResult, aggregate, aggregate_by_tier, error_distribution,
                      spread, worst_cuisine)  # noqa: E402
 
@@ -65,7 +66,19 @@ def truth_grams(entry: dict) -> dict[str, float]:
     return grams
 
 
-def evaluate(config_name: str, live: bool = False, record: bool = False) -> list[SampleResult]:
+def evaluate(
+    config_name: str,
+    live: bool = False,
+    record: bool = False,
+    locales: set[str] | None = None,
+) -> list[SampleResult]:
+    """Score one configuration.
+
+    `locales` is the declared evidence scope. Rows outside it are not run at
+    all: they are a scope decision made once in `main`, not a failure to load a
+    pack, and conflating the two would let a broken installation masquerade as
+    a deliberate exclusion.
+    """
     cfg = CONFIGS[config_name]
     if live:
         vision = GeminiVision(os.getenv("GEMINI_API_KEY", ""))
@@ -77,6 +90,8 @@ def evaluate(config_name: str, live: bool = False, record: bool = False) -> list
         if not line.strip():
             continue
         entry = json.loads(line)
+        if locales is not None and entry["locale"] not in locales:
+            continue
         try:
             truth_kcal(entry)  # the pack must be loadable before anything runs
         except PackUnavailableError:
@@ -216,6 +231,53 @@ def scorecard(all_results: dict[str, list[SampleResult]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def manifest_locales() -> list[str]:
+    """Every locale the golden set mentions, before any scope decision."""
+    return sorted({
+        json.loads(line)["locale"]
+        for line in GOLDEN.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    })
+
+
+def summary(
+    all_results: dict[str, list[SampleResult]],
+    included: list[str],
+    excluded: list[str],
+) -> dict:
+    """The machine-readable form of the numbers the README quotes.
+
+    The README is prose and must stay prose; this is the other half of the
+    contract so `scripts/check_readme_claims.py` can compare the two instead of
+    trusting the person who last edited the paragraph.
+    """
+    out: dict = {
+        "generator": "eval/harness.py",
+        "scope": {"included_locales": included, "excluded_locales": excluded},
+        "configs": {},
+    }
+    for name, results in all_results.items():
+        buckets, overall = aggregate(results)
+        worst = worst_cuisine(buckets)
+        out["configs"][name] = {
+            "rows": overall.n,
+            "committed": overall.n_covered,
+            "asked": overall.asked,
+            "abstained": overall.abstained,
+            "coverage_pct": round(overall.coverage, 1),
+            "item_f1": round(overall.f1, 2),
+            "fp_rate_pct": round(overall.hallucination_rate, 1),
+            "mape_pct": round(float(overall.mape), 1),
+            "calorie_eligible": overall.calorie_eligible,
+            "calorie_scored": len(overall.apes),
+            "worst_cuisine": (
+                {"name": worst.name, "mape_pct": round(float(worst.mape), 1)}
+                if worst else None
+            ),
+        }
+    return out
+
+
 def check_regression(all_results: dict[str, list[SampleResult]]) -> int:
     """Per-cuisine no-regression guard: improving one market must not silently
     cost another. Fails on any bucket that got worse against the stored baseline."""
@@ -260,15 +322,48 @@ def main() -> int:
         help="record live provider observations into eval/fixtures/",
     )
     ap.add_argument("--check-regression", action="store_true")
+    ap.add_argument(
+        "--include-restricted",
+        action="store_true",
+        help=(
+            "also score locales whose catalogue is licence-restricted and not "
+            "redistributable; the result is a local measurement a clean clone "
+            "cannot reproduce, so it is not what the README publishes"
+        ),
+    )
+    ap.add_argument(
+        "--summary-json",
+        default=None,
+        help="write the README-facing numbers as JSON (used by scripts/check_readme_claims.py)",
+    )
     args = ap.parse_args()
 
     if args.record and not args.live:
         ap.error("--record requires --live")
 
     obs.configure("WARNING")  # keep the scorecard readable; INFO for debugging
+
+    # The scope is decided once, before any evaluation runs. A locale the
+    # repository cannot distribute is excluded by default so the published
+    # snapshot is exactly what a clean clone reproduces (see eval/locale_scope.py).
+    locales, excluded = evidence_scope(manifest_locales(), args.include_restricted)
+    print(exclusion_note(locales, excluded))
+
     # `make eval-live` predates the flag and must keep recording by default.
-    all_results = {name: evaluate(name, live=args.live, record=args.record or args.live)
+    all_results = {name: evaluate(name, live=args.live, record=args.record or args.live,
+                                  locales=set(locales))
                    for name in args.configs.split(",")}
+
+    if args.summary_json:
+        path = Path(args.summary_json)
+        if not path.is_absolute():
+            path = REPO / path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(summary(all_results, locales, excluded), indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"wrote {args.summary_json}")
 
     if args.check_regression:
         return check_regression(all_results)

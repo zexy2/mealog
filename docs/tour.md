@@ -27,7 +27,7 @@ and [D1](decisions.md#d1--the-model-never-produces-a-nutrient-number).
 
 | # | What | Why it matters | Time |
 | --- | --- | --- | --- |
-| 1 | [`docs/decisions.md`](decisions.md) | 22 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21, D22. | 8 min |
+| 1 | [`docs/decisions.md`](decisions.md) | 23 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21, D22, D23. | 8 min |
 | 2 | [`docs/evaluation.md`](evaluation.md) | What the numbers mean, what they do not, and the tier system behind them. | 6 min |
 | 3 | [`docs/assumptions.md`](assumptions.md) | The claims checked before they were written down, including one that was wrong. | 5 min |
 | 4 | [`docs/architecture.md`](architecture.md) | Topology and the seven grounded stages. | 4 min |
@@ -68,13 +68,16 @@ fail is worth more than a policy paragraph — try
 **The evaluation refuses to flatter itself.**
 
 ```sh
-make eval   # worst-cuisine metric; a bucket may not silently get worse
+make eval    # worst-cuisine metric; a bucket may not silently get worse
+make claims  # fails if README's numbers differ from this checkout's results
 ```
 
-The scorecard's honest headline is that grounded coverage is **12%** in the
+The scorecard's honest headline is that grounded coverage is **9%** in the
 configuration with the most safeguards, and that perception is the weak layer,
-not retrieval. [README → Evidence snapshot](../README.md#evidence-snapshot)
-states it in the same words.
+not retrieval. The published numbers are deliberately the ones a clean clone
+reproduces: the licence-restricted Turkish catalogue is excluded and named
+(D23). [README → Evidence snapshot](../README.md#evidence-snapshot) states the
+same numbers, and `make claims` checks that it still does.
 
 ---
 
@@ -101,8 +104,9 @@ states it in the same words.
 
 - **Live-provider accuracy is unmeasured.** The scorecard replays fixtures
   recorded with a different Gemini model from the live adapter default.
-- **Perception, not retrieval, is the ceiling.** Retrieval is 122/122
-  Recall@1 on the variant set; identity over photographed plates is 0.15 Item F1.
+- **Perception, not retrieval, is the ceiling.** Retrieval is 30/30
+  Recall@1 in the published (redistributable) scope; identity over photographed
+  plates is 0.13 Item F1.
 - **Mobile advisories are open** and need an Expo-aware upgrade, not a lockfile
   rewrite ([why](security.md#8-dependency-policy)).
 - **Demo mode resolves names locally** from a small fixed demo catalogue
@@ -120,6 +124,6 @@ same list. If these two ever disagree, that is a bug.
 ## 6. If you only have two minutes
 
 1. [README](../README.md) headline and evidence snapshot.
-2. `make invariants && make licence && make eval | tail -20`.
-3. This section, again: *12% grounded coverage, perception is the ceiling, and
+2. `make invariants && make licence && make eval | tail -20 && make claims`.
+3. This section, again: *9% grounded coverage, perception is the ceiling, and
    the build will not let me pretend otherwise.*

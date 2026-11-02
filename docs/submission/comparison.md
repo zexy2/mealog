@@ -1,5 +1,14 @@
 # Mealog compared with EatBetter
 
+> **Provenance.** This is the August 2026 submission comparison, kept as a
+> record of what was submitted. Its numbers are the **full-set** run with the
+> licence-restricted Turkish catalogue installed, which a clean clone cannot
+> reproduce. The current published snapshot is 77 golden rows and 38 retrieval
+> variants over the redistributable packs, is stated in
+> [README → Evidence snapshot](../../README.md#evidence-snapshot), and is checked
+> by `make claims` (D23). Read the numbers below as the historical submission
+> state, not as the repository's current claim.
+
 This is a bounded product comparison, not a claim that Mealog beats EatBetter
 overall. EatBetter evidence is limited to its
 [public App Store listing](https://apps.apple.com/us/app/eatbetter-ai-food-journal/id6639614109)

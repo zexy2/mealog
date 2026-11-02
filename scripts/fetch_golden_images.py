@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import struct
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -241,27 +242,40 @@ def _write_verified(target: Path, data: bytes, expected_sha256: str) -> None:
     os.replace(temporary, target)
 
 
-def fetch_manifest(manifest: Path, output_dir: Path) -> int:
+def fetch_manifest(manifest: Path, output_dir: Path) -> tuple[int, list[str]]:
+    """Fetch every non-text input, isolating per-row failures.
+
+    One dead source must not stop the 75 images that do resolve. The previous
+    all-or-nothing loop aborted on the first HTTP 403, before most of the
+    manifest had been attempted, which made the live path look missing rather
+    than partially unavailable.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     rows = _manifest_rows(manifest)
     zip_cache: dict[str, RemoteZip] = {}
     fetched = 0
+    failures: list[str] = []
     for row in rows:
         if row.get("input_type") == "text":
             continue
-        for field in ("image_source_url", "image_license", "image_sha256", "image_filename"):
-            if not row.get(field):
-                raise RuntimeError(f"{row['sample_id']} missing {field}")
-        target = _output_path(output_dir, row["image_filename"])
-        data = _fetch_entry(row, zip_cache)
-        _write_verified(target, data, row["image_sha256"])
+        sample_id = row.get("sample_id", "<unknown>")
         try:
-            display_target = target.relative_to(ROOT)
-        except ValueError:
-            display_target = target
-        print(f"fetched {row['sample_id']} -> {display_target}")
-        fetched += 1
-    return fetched
+            for field in ("image_source_url", "image_license", "image_sha256", "image_filename"):
+                if not row.get(field):
+                    raise RuntimeError(f"missing {field}")
+            target = _output_path(output_dir, row["image_filename"])
+            data = _fetch_entry(row, zip_cache)
+            _write_verified(target, data, row["image_sha256"])
+            try:
+                display_target = target.relative_to(ROOT)
+            except ValueError:
+                display_target = target
+            print(f"fetched {sample_id} -> {display_target}")
+            fetched += 1
+        except (RuntimeError, OSError, ValueError) as error:
+            failures.append(f"{sample_id}: {error}")
+            print(f"failed {sample_id}: {error}", file=sys.stderr)
+    return fetched, failures
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -271,8 +285,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     manifest = args.manifest if args.manifest.is_absolute() else ROOT / args.manifest
     output_dir = args.output_dir if args.output_dir.is_absolute() else ROOT / args.output_dir
-    count = fetch_manifest(manifest, output_dir)
+    count, failures = fetch_manifest(manifest, output_dir)
     print(f"fetched {count} non-text golden input(s)")
+    if failures:
+        print(f"{len(failures)} input(s) could not be fetched:", file=sys.stderr)
+        for failure in failures:
+            print(f"  {failure}", file=sys.stderr)
+        return 1
     return 0
 
 

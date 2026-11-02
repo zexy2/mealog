@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import mimetypes
 import os
 import re
 import sys
@@ -21,10 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "eval/golden/manifest.jsonl"
 DEFAULT_IMAGES = ROOT / "data/golden-images"
 DEFAULT_FIXTURES = ROOT / "eval/fixtures"
-TEXT_INPUTS = {"tr_0003": "1 simit ve 1 ayran"}
 MODEL_DIRECTORY = "models"
 
 sys.path.insert(0, str(ROOT / "server" / "src"))
+sys.path.insert(0, str(ROOT / "eval"))
+
+from golden_inputs import input_for_row, load_manifest
 
 from mealog.adapters.vision_gemini import (
     DEFAULT_MODEL,
@@ -33,28 +34,10 @@ from mealog.adapters.vision_gemini import (
     GeminiVision,
     configured_model_id,
 )
-from mealog.pipeline.ports import VisionInput
 
 
 def _resolve(path: Path) -> Path:
     return path if path.is_absolute() else ROOT / path
-
-
-def _manifest_rows(path: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        row = json.loads(line)
-        sample_id = row.get("sample_id") if isinstance(row, dict) else None
-        if not isinstance(sample_id, str) or not sample_id:
-            raise ValueError(f"manifest line {line_number} has no sample_id")
-        if sample_id in seen:
-            raise ValueError(f"duplicate sample_id in manifest: {sample_id}")
-        seen.add(sample_id)
-        rows.append(row)
-    return rows
 
 
 def _safe_model_id(model_id: str) -> str:
@@ -93,32 +76,6 @@ def _fixture_path(fixture_dir: Path, model_id: str, sample_id: str) -> Path:
     return _model_fixture_dir(fixture_dir, model_id) / f"{sample_id}.json"
 
 
-def _input_for_row(row: dict[str, Any], images_dir: Path) -> VisionInput:
-    sample_id = row["sample_id"]
-    if row.get("input_type") == "text":
-        try:
-            text = TEXT_INPUTS[sample_id]
-        except KeyError as exc:
-            raise ValueError(f"no recording text configured for {sample_id}") from exc
-        return VisionInput(text=text, sample_id=sample_id)
-
-    filename = row.get("image_filename")
-    if not isinstance(filename, str) or Path(filename).name != filename:
-        raise ValueError(f"{sample_id} has no safe image_filename")
-    image_path = images_dir / filename
-    if not image_path.is_file():
-        raise FileNotFoundError(
-            f"missing {image_path}; run scripts/fetch_golden_images.py first"
-        )
-    image_bytes = image_path.read_bytes()
-    media_type = mimetypes.guess_type(image_path.name)[0] or "image/jpeg"
-    return VisionInput(
-        image_bytes=image_bytes,
-        image_media_type=media_type,
-        sample_id=sample_id,
-    )
-
-
 def record_model(
     *,
     rows: list[dict[str, Any]],
@@ -150,7 +107,7 @@ def record_model(
             skipped += 1
             continue
 
-        input_ref = _input_for_row(row, images_dir)
+        input_ref = input_for_row(row, images_dir)
         try:
             vision.perceive(input_ref)
             path = _fixture_path(fixture_dir, model_id, sample_id)
@@ -208,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("model ID cannot be empty")
 
     summary = record_model(
-        rows=_manifest_rows(manifest),
+        rows=load_manifest(manifest),
         api_key=api_key,
         model_id=model_id,
         images_dir=images_dir,

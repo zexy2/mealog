@@ -76,6 +76,16 @@ no personal identifiers, and no raw provider envelopes. They are included so the
 offline scorecard can be reproduced without an API key. They are evidence of
 integration, not an accuracy benchmark, and are not a data set for training.
 
+**Images are never committed.** The golden manifest records a source URL,
+licence and SHA-256 per row; `scripts/fetch_golden_images.py` writes the bytes to
+the ignored `data/golden-images/`. A live measurement (`make eval-live`) uploads
+those images to the configured vision provider, so the row licences have to
+permit third-party processing. Two rows do not: `jp_0001` and `jp_0002` come from
+UEC-Food 256, whose official terms allow non-commercial research only. They are
+excluded from live runs even when the archive is reachable, which caps live
+coverage at 75 of the 77 published rows. Their absence is reported, not
+substituted with a re-encoded or re-sourced image.
+
 ## The Turkish catalogue is installed, not committed
 
 `locale_packs/tr/` ships its metadata (`pack.yaml`, `text_rules.yaml`) but not

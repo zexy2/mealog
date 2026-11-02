@@ -59,6 +59,12 @@ URL at fetch time), and the official UEC ZIP through HTTP range requests. The
 UEC archive is about 4.2 GB; the script downloads only its central directory and
 the two selected members.
 
+A dead source no longer aborts the rest of the fetch: the script reports every
+failed row, writes the rows that did resolve, and exits non-zero. The two
+`jp_*` rows currently fail because the UEC archive returns HTTP 403; see
+[docs/licensing.md](../../docs/licensing.md#evaluation-fixtures) for why they are
+also excluded from live provider calls.
+
 If a source changes bytes, fetching fails with the expected and received
 SHA-256. Do not update the hash mechanically: confirm the replacement source,
 licence and sample identity in a human-reviewed PR first. `tr_0003` is the text
@@ -90,6 +96,12 @@ lane and therefore has no image fields.
 The 55 new Nutrition5k rows use the official overhead RGB URL, CC BY 4.0
 licence, and a recorded SHA-256. Their Gemini observations are recorded with
 `gemini-flash-lite-latest` at four-second pacing; the recorder skips matching
-existing fixtures idempotently. Images and provider responses remain ignored
+existing fixtures idempotently.
+
+The committed fixtures were recorded at prompt `p3`. The adapter now reports
+`p4`, so a live scorecard measures both a different prompt and a different
+model; it is a dated observation, not a re-run of the offline snapshot (D24).
+Only `scripts/record_golden_fixtures.py` (`make record`) writes
+`eval/fixtures/`. Images and provider responses remain ignored
 local artifacts. Do not reset `eval/reports/baseline.json`; adding real rows is
 supposed to move coverage and error counts.

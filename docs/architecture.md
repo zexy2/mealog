@@ -187,3 +187,4 @@ All binding constraints are in [docs/decisions.md](decisions.md).
 - D19-D20: explicit unverified estimate lane and bounded batch execution.
 - D21-D23: restricted data installed not committed, catalogue-authoritative client,
   and the clean-clone published snapshot.
+- D24: live measurement observes without rewriting the offline baseline.

@@ -93,7 +93,7 @@ reference tooling, not the delivered backend.
 ## Design decisions
 
 These are the choices that shaped the system, each with the trade-off it cost.
-The full record is [decision log D1–D23](docs/decisions.md).
+The full record is [decision log D1–D24](docs/decisions.md).
 
 | Decision | What it buys | What it costs |
 | --- | --- | --- |
@@ -105,6 +105,7 @@ The full record is [decision log D1–D23](docs/decisions.md).
 | **Published numbers are the clean-clone ones** ([D23](docs/decisions.md#d23--the-published-snapshot-is-what-a-clean-clone-reproduces)) | Every quoted metric is reproducible and checked by `make claims` | The headline is worse, and restricted rows are named but unmeasured |
 | **Expo mobile client, not a web app** ([D9](docs/decisions.md#d9--mobile-is-expo--react-native-demoable-without-a-key)) | Real camera and native review flow | Device compatibility needs separate runtime verification |
 | **NestJS edge plus Python evaluation harness** ([D12](docs/decisions.md#d12--nodejs--typescript-backend-nestjs-edge-python-eval-harness)) | Typed HTTP surface plus reproducible offline measurement | Two runtimes and parity ceremony |
+| **Measurement never writes the baseline** ([D24](docs/decisions.md#d24--a-live-measurement-is-an-observation-never-the-baseline)) | The published number cannot move by looking at it; recording is explicit | A live number is a dated observation, and a full run costs minutes and cents |
 
 ## Evidence snapshot
 
@@ -213,8 +214,13 @@ pack whose terms do not fit your use case.
 
 - No public deployment URL and no current-release simulator or physical-device
   E2E claim.
-- Live-provider accuracy is unmeasured; the scorecard replays fixtures recorded
-  with a different Gemini model from the live adapter default.
+- Live-provider accuracy is still unmeasured, but it is now measurable:
+  `make eval-live` sends the fetched golden images to the configured model and
+  writes a dated observation. It never rewrites the committed fixtures (D24),
+  and committed fixtures are prompt `p3` against an adapter at `p4`, so a live
+  scorecard is not comparable to the snapshot above. `jp_0001` / `jp_0002` are
+  UEC images (non-commercial research only, source HTTP 403) and must not be
+  sent to a third-party API, capping live coverage at 75/77.
 - Only 2 of the 77 published rows are complete and covered for calorie
   MAPE (2/80 including the licence-restricted pack).
 - The mobile client resolves a typed food name through the server

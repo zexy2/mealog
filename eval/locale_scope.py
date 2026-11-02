@@ -3,7 +3,7 @@
 The rule exists because of a reproducibility failure, not for tidiness. The
 README used to publish numbers measured with the licence-restricted Turkish
 catalogue installed. On a clean clone the same command produced different
-numbers (9% coverage instead of 12%, Item F1 0.13 instead of 0.15) and the
+numbers (9% coverage instead of 12%, Item F1 0.38 instead of 0.39) and the
 retrieval evaluation crashed on the missing pack. A reader could not reproduce
 the claim the repository was making about itself.
 

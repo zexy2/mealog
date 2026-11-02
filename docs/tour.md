@@ -27,7 +27,7 @@ and [D1](decisions.md#d1--the-model-never-produces-a-nutrient-number).
 
 | # | What | Why it matters | Time |
 | --- | --- | --- | --- |
-| 1 | [`docs/decisions.md`](decisions.md) | 24 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21, D22, D23, D24. | 8 min |
+| 1 | [`docs/decisions.md`](decisions.md) | 25 decisions, each with the alternative rejected and the cost paid. Read D1, D2, D21, D22, D23, D24, D25. | 8 min |
 | 2 | [`docs/evaluation.md`](evaluation.md) | What the numbers mean, what they do not, and the tier system behind them. | 6 min |
 | 3 | [`docs/assumptions.md`](assumptions.md) | The claims checked before they were written down, including one that was wrong. | 5 min |
 | 4 | [`docs/architecture.md`](architecture.md) | Topology and the seven grounded stages. | 4 min |
@@ -103,11 +103,14 @@ same numbers, and `make claims` checks that it still does.
 
 ## 5. What is not finished, stated plainly
 
-- **Live-provider accuracy is unmeasured.** The scorecard replays fixtures
-  recorded with a different Gemini model from the live adapter default.
+- **Live-provider accuracy has dated observations, not a measurement.** The
+  scorecard replays fixtures recorded with a different Gemini model from the
+  live adapter default; two live runs on 2026-11-02 answered 4/74 and 3/12
+  without deferring.
 - **Perception, not retrieval, is the ceiling.** Retrieval is 30/30
   Recall@1 in the published (redistributable) scope; identity over photographed
-  plates is 0.13 Item F1.
+  plates is 0.38 Item F1, and most of that is a corrected annotation, not a
+  better model (D25).
 - **Mobile advisories are open** and need an Expo-aware upgrade, not a lockfile
   rewrite ([why](security.md#8-dependency-policy)).
 - **Demo mode resolves names locally** from a small fixed demo catalogue

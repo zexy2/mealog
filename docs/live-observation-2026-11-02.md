@@ -41,10 +41,11 @@ non-commercial-research only and currently unreachable (HTTP 403); see
 | other_mixed | 2 | 0% | 0 | 0 | 0.00 | — | — | 100.0% |
 | **overall** | **12** | **25%** | **1** | **1** | **0.10** | **25.4%** | **0.0%** | **90.9%** |
 
-3 of 12 rows committed, 9 asked. One row had complete positive truth and was
-scored for calories: 25.4% error, outside the ±20% band. The false-positive
-rate is 90.9%, matching the shape of the offline result (88.2%): the gate
-abstains, but the candidates it considers are mostly wrong.
+3 of 12 rows were answered without deferring, 9 asked. One row had complete
+positive truth and was scored for calories: 25.4% error, outside the ±20% band.
+The false-positive rate is 90.9%, against the offline replay's 88.2% at the
+time (40.5% after the truth-completeness correction in D25): the gate abstains,
+but a large share of the candidates it considers is not in truth.
 
 ## Full published scope (V3, 75 rows)
 
@@ -71,11 +72,13 @@ reduced scope chosen for convenience.
 | other_mixed | 8 | 0% | 0 | 0 | 0.08 | — | — | 90.9% |
 | **overall** | **74** | **5%** | **2** | **1** | **0.15** | **25.4%** | **0.0%** | **85.6%** |
 
-Four of 74 rows committed (5.4%), 70 asked. Against the offline snapshot
-(9% coverage, Item F1 0.13, FP 88.2%) the live run commits **less**, with a
-marginally higher F1 and a marginally lower false-positive rate — and none of
-that comparison is sound, because the prompt differs (`p3` fixtures vs `p4`
-adapter) and the live model is not the backend default.
+Four of 74 rows were answered without deferring (5.4%), 70 asked. Against the
+offline snapshot (9% coverage, Item F1 0.38, FP 40.5%) the live run answers
+**less often** and scores a much lower F1 (0.15 vs 0.38). The comparison is not
+sound: the prompt differs (`p3` fixtures vs `p4` adapter), the live model is not
+the backend default, and D25 corrected the offline truth after these runs —
+against the earlier truth the offline F1 was 0.13 and its FP rate 88.2%, which
+is why the live numbers sat close to it.
 
 Two rows had complete positive truth; only one was scored, so the calorie MAPE
 is again a single-row number. `pkg_0001` (tier 2) was calorie-eligible and not
@@ -90,7 +93,7 @@ offline result is real rather than an artefact of fixture replay.
 ## Why this is an observation, not a measurement of the model
 
 - **It moved between runs.** A first run of the same twelve rows on the same
-  code committed 4 rows (33% coverage); the second committed 3 (25%). The
+  code answered 4 rows (33% coverage); the second answered 3 (25%). The
   identity layer is not stable at n=12, and a single run is not a sample. The
   75-row run and the 12-row run are also different subsets and cannot be
   compared to each other.

@@ -93,7 +93,7 @@ reference tooling, not the delivered backend.
 ## Design decisions
 
 These are the choices that shaped the system, each with the trade-off it cost.
-The full record is [decision log D1–D24](docs/decisions.md).
+The full record is [decision log D1–D25](docs/decisions.md).
 
 | Decision | What it buys | What it costs |
 | --- | --- | --- |
@@ -106,6 +106,7 @@ The full record is [decision log D1–D24](docs/decisions.md).
 | **Expo mobile client, not a web app** ([D9](docs/decisions.md#d9--mobile-is-expo--react-native-demoable-without-a-key)) | Real camera and native review flow | Device compatibility needs separate runtime verification |
 | **NestJS edge plus Python evaluation harness** ([D12](docs/decisions.md#d12--nodejs--typescript-backend-nestjs-edge-python-eval-harness)) | Typed HTTP surface plus reproducible offline measurement | Two runtimes and parity ceremony |
 | **Measurement never writes the baseline** ([D24](docs/decisions.md#d24--a-live-measurement-is-an-observation-never-the-baseline)) | The published number cannot move by looking at it; recording is explicit | A live number is a dated observation, and a full run costs minutes and cents |
+| **Truth is derived from the catalogue, not remembered** ([D25](docs/decisions.md#d25--golden-truth-is-re-derived-from-the-catalogue-not-remembered)) | An annotation gap cannot masquerade as model weakness | The headline moves when the catalogue grows, and the move needs explaining |
 
 ## Evidence snapshot
 
@@ -125,14 +126,18 @@ them.
   configuration. None of the seven is auto-accepted: a count read from a
   photo caps item confidence at 0.60 against a 0.75 threshold, so a
   photographed meal always reaches a human confirm.
-- **Item F1 0.13; FP rate 88.2%:** the current identity layer is not accurate
-  enough for broad automatic logging.
+- **Item F1 0.38; FP rate 40.5%:** the identity layer is better than the
+  earlier 0.13 / 88.2%, but still not accurate enough for broad automatic
+  logging. Most of that jump is an annotation fix, not a model improvement:
+  the golden truth listed catalogue foods as "unmapped" after the catalogue
+  grew from 24 to 38 foods, so correct predictions were scored as false
+  positives (D25).
 - **Calorie MAPE 12.7% on 2/2 rows:** too small a denominator for a general
   calorie-accuracy claim.
 
 `ask` is a safe routing outcome, not a claim that every deferred candidate was
 correct. The FP metric includes unsupported proposed items even when the system
-defers them; it is not an 88.2% silent-commit rate. These are fixture-replay
+defers them; it is not a 40.5% silent-commit rate. These are fixture-replay
 results, not live-provider accuracy. The fixtures were recorded with
 `gemini-flash-lite-latest`; they do not measure the live adapter default,
 `gemini-3.6-flash`. Full cuisine slices, denominators, metric definitions, and
@@ -152,7 +157,7 @@ food, which is why the gate abstains instead of guessing.
 | Thin Turkish catalogue | 57 rows once `make pack` installs it (0 on a clean clone); common long-tail dishes are absent | More abstention and correction work |
 | No auto-accepted photo | Every photographed meal routes to `review`; vision-derived counts cap confidence at 0.60, under the 0.75 auto-accept threshold | The gate never silently logs a photo, but nothing is hands-free yet |
 | Catalogue availability | The Turkish rows are licence-restricted and installed separately (`make pack`); without them `tr` answers 503 and only `en_US`/`ja_JP` serve | A clone is not a drop-in Turkish demo until the pack is installed |
-| South Asian coverage | n=16, 0% coverage, Item F1 0.00 | Weakest market is unusable in this evaluation set |
+| South Asian coverage | n=16, 0% coverage, Item F1 0.17 | Weakest market still commits nothing in this evaluation set |
 
 Prepared pasta, bulgur, mantı, Turkish coffee, and tea probes abstain instead of
 selecting raw/dry records. This contains a known error class; it does not solve

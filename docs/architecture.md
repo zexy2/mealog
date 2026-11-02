@@ -188,3 +188,4 @@ All binding constraints are in [docs/decisions.md](decisions.md).
 - D21-D23: restricted data installed not committed, catalogue-authoritative client,
   and the clean-clone published snapshot.
 - D24: live measurement observes without rewriting the offline baseline.
+- D25: golden truth is re-derived from the catalogue by exact match.

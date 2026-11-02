@@ -70,7 +70,7 @@ Published numbers are defined as **what a clean clone reproduces**, not as the
 best measurement the maintainer can obtain. The distinction became necessary
 when the README published a run made with the licence-restricted Turkish
 catalogue installed: the same command on a fresh checkout produced different
-numbers (9% coverage instead of 12%, Item F1 0.13 instead of 0.15), and
+numbers (9% coverage instead of 12%, Item F1 0.38 instead of 0.39), and
 `eval/retrieval_eval.py` crashed because the pack was absent. A claim the
 repository's own tree cannot support is worse than an unflattering number.
 
@@ -123,7 +123,7 @@ confidence at 0.60 (`VISION_COUNT_CONFIDENCE`) against the 0.75
 a sample is calorie-eligible only when its truth is complete and its total
 calories are positive. Coverage is reported next to MAPE because they describe
 a risk–coverage trade: a system can lower its error by answering only the cases
-it is willing to commit to.
+it is willing to answer.
 Treating a deferred meal as a zero-calorie answer would punish correct
 behaviour, so deferred samples are excluded from calorie MAPE rather than
 scored as wrong zeroes. Samples with zero truth calories have no calorie APE;
@@ -163,7 +163,7 @@ An empty calorie denominator is not a zero-error result. `Bucket.mape` and
 `Bucket.within_20pct` retain numeric zero for regression/JSON compatibility,
 but format as an em dash in scorecard cells when there are no positive-truth
 APE values. A bucket with `coverage > 0%` can still have no calorie score when
-its truth is identity-only; a bucket with `coverage = 0%` has no committed
+its truth is identity-only; a bucket with `coverage = 0%` has no non-deferred
 calorie predictions at all. Neither should be read as `0.0%` accuracy.
 The regression guard compares only non-empty `calorie_scored` buckets. If a
 bucket that had a positive baseline MAPE has no eligible calorie rows now, the
@@ -187,39 +187,41 @@ behaviour.
 | Config | Worst-cuisine MAPE | Mean MAPE | Spread | Coverage | Calorie eligible | Calorie scored | Item F1 | FP rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | V0 | 100.0% (western) | 100.0% | 1.00x | 100% | 2 | 2 | 0.00 | 100.0% |
-| V1 | 12.7% (western) | 12.7% | 1.00x | 42% | 2 | 2 | 0.12 | 90.5% |
-| V2 | 12.7% (western) | 12.7% | 1.00x | 42% | 2 | 2 | 0.12 | 90.5% |
-| V3 | 12.7% (western) | 12.7% | 1.00x | 9% | 2 | 2 | 0.13 | 88.2% |
+| V1 | 12.7% (western) | 12.7% | 1.00x | 42% | 2 | 2 | 0.45 | 46.1% |
+| V2 | 12.7% (western) | 12.7% | 1.00x | 42% | 2 | 2 | 0.45 | 46.1% |
+| V3 | 12.7% (western) | 12.7% | 1.00x | 9% | 2 | 2 | 0.38 | 40.5% |
 
 The current V3 cuisine slices are:
 
 | Cuisine | n | Coverage | Calorie eligible | Calorie scored | Item F1 | kcal MAPE | within +/-20% | FP rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| western | 12 | 33% | 2 | 2 | 0.43 | 12.7% | 50.0% | 66.7% |
-| east_asian | 16 | 6% | 0 | 0 | 0.10 | — | — | 90.0% |
-| other_mixed | 8 | 0% | 0 | 0 | 0.08 | — | — | 91.7% |
-| mediterranean | 9 | 0% | 0 | 0 | 0.00 | — | — | 100.0% |
-| south_asian | 16 | 0% | 0 | 0 | 0.00 | — | — | 100.0% |
-| latin_american | 16 | 12% | 0 | 0 | 0.06 | — | — | 95.7% |
-| **overall** | **77** | **9%** | **2** | **2** | **0.13** | **12.7%** | **50.0%** | **88.2%** |
+| western | 12 | 33% | 2 | 2 | 0.77 | 12.7% | 50.0% | 19.4% |
+| east_asian | 16 | 6% | 0 | 0 | 0.31 | — | — | 56.7% |
+| other_mixed | 8 | 0% | 0 | 0 | 0.29 | — | — | 41.7% |
+| mediterranean | 9 | 0% | 0 | 0 | 0.12 | — | — | 70.0% |
+| south_asian | 16 | 0% | 0 | 0 | 0.17 | — | — | 57.9% |
+| latin_american | 16 | 12% | 0 | 0 | 0.46 | — | — | 32.6% |
+| **overall** | **77** | **9%** | **2** | **2** | **0.38** | **12.7%** | **50.0%** | **40.5%** |
 
 The same V3 calculations by conservative overall tier are:
 
 | Ground-truth tier | n | Coverage | Calorie eligible | Calorie scored | Item F1 | kcal MAPE | within +/-20% | FP rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| tier_1 | 74 | 8% | 1 | 1 | 0.12 | 25.4% | 0.0% | 89.3% |
+| tier_1 | 74 | 8% | 1 | 1 | 0.37 | 25.4% | 0.0% | 40.3% |
 | tier_2 | 1 | 100% | 1 | 1 | 1.00 | 0.0% | 100.0% | 0.0% |
 | tier_3 | 2 | 0% | 0 | 0 | 0.40 | — | — | 66.7% |
-| **overall** | **77** | **9%** | **2** | **2** | **0.13** | **12.7%** | **50.0%** | **88.2%** |
+| **overall** | **77** | **9%** | **2** | **2** | **0.38** | **12.7%** | **50.0%** | **40.5%** |
 
-> **Methodological Context on False Positive (FP) Rate:** The 88.2% FP rate is
+> **Methodological Context on False Positive (FP) Rate:** The 40.5% FP rate is
 > measured across every sample in scope and counts rejected and abstained
-> proposals, not only the non-deferred ones. Most counted false positives are unmapped
-> recipe ingredients (olive oil, seasoning) in multi-dish reference recipes: the
-> perception layer observed them correctly, but the canonical single-dish
-> catalogue does not map them. And 70 of the 77 samples ended in a safe `ask`, so
-> no ungrounded candidate reached the user's log. The rate is a property of the
-> identity layer's proposals, not evidence that 88% of logged meals were wrong.
+> proposals, not only the non-deferred ones. It was 88.2% before D25: the
+> golden truth still listed catalogue foods such as broccoli, pork and tofu as
+> "unmapped", so correct predictions were scored as false positives. What
+> remains is mostly genuinely out-of-catalogue ingredients (salt, garlic,
+> sauces, cheese) and near-miss bindings, not the catalogue gap. And 70 of the
+> 77 samples ended in a safe `ask`, so no ungrounded candidate reached the
+> user's log. The rate is a property of the identity layer's proposals, not
+> evidence that 40% of logged meals were wrong.
 
 `python eval/decompose_real_error.py` also replays the committed fixtures
 without provider calls. It takes the same published scope as the harness, so it
@@ -358,11 +360,11 @@ written to `eval/fixtures/`.
 Two such runs exist, on 2026-11-02 at the commit that added this path:
 
 - **Full published scope, 75 rows:** 74 scored, one provider timeout named in
-  `row_errors`, 4/74 committed (5.4%), Item F1 0.15, FP rate 85.6%, 25.4%
+  `row_errors`, 4/74 answered without deferring (5.4%), Item F1 0.15, FP rate 85.6%, 25.4%
   calorie error on 1 of 2 eligible rows. Six minutes and fourteen seconds.
-- **Twelve-row stratified pilot:** 3/12 committed (25%), Item F1 0.10, FP rate
-  90.9%; a rerun of the same rows committed 4/12, which is why the pilot is
-  reported as a range rather than a number.
+- **Twelve-row stratified pilot:** 3/12 answered without deferring (25%), Item
+  F1 0.10, FP rate 90.9%; a rerun of the same rows answered 4/12, which is why
+  the pilot is reported as a range rather than a number.
 
 Both are worse than the offline replay on coverage, and neither is comparable
 to the snapshot above: the prompt is `p4` against `p3` fixtures, the model is

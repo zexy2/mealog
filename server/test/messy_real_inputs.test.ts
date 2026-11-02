@@ -10,8 +10,9 @@ import { makePerceivedItem } from '../src/domain/models';
 import { VisionInput, type VisionPort } from '../src/pipeline/ports';
 import { run, CONFIGS } from '../src/pipeline/runner';
 import { load } from '../src/locales/loader';
+import { pack_installed } from './helpers/packs';
 
-describe('Messy Real-World Multi-Item Food Tests', () => {
+(pack_installed('tr') ? describe : describe.skip)('Messy Real-World Multi-Item Food Tests', () => {
   it('verifies Turkish pack loaded and has rich multi-item food coverage', () => {
     const pack = load('tr');
     expect(pack.foods['tr.menemen']).toBeDefined();

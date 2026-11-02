@@ -7,6 +7,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from conftest import requires_pack
 from scripts.curate_dataset import curate_events
 
 
@@ -19,6 +20,7 @@ def test_missing_input_fails_without_creating_bootstrap_data(tmp_path: Path) -> 
     assert not missing.exists()
 
 
+@requires_pack("tr")
 def test_review_candidates_keep_hash_and_never_emit_raw_idempotency_key(tmp_path: Path) -> None:
     events = tmp_path / "events.jsonl"
     request_hash = "a" * 64
@@ -56,5 +58,7 @@ def test_invalid_request_hash_fails_loudly(tmp_path: Path) -> None:
     events = tmp_path / "events.jsonl"
     events.write_text('{"items": []}\n', encoding="utf-8")
 
+    # A finite catalogue that is not the restricted Turkish one, so the test
+    # exercises the event validation rather than the pack install step.
     with pytest.raises(ValueError, match="missing or invalid request_hash"):
-        curate_events(events, tmp_path / "out")
+        curate_events(events, tmp_path / "out", locale="en_US")

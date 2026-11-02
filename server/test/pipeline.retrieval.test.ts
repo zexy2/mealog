@@ -27,6 +27,12 @@ import {
   similarities,
 } from '../src/pipeline/retrieval/index';
 import { LicenseTerm, LocalePack, load } from '../src/locales/loader';
+import { pack_installed } from './helpers/packs';
+
+// These two cases read the real Turkish catalogue, which is installed locally
+// and never committed (docs/licensing.md). The rest of the file uses synthetic
+// packs and always runs.
+const turkishCatalogue = pack_installed('tr') ? it : it.skip;
 import { makeNutrients, type CanonicalFood } from '../src/domain/models';
 import {
   TfidfVectoriser,
@@ -285,7 +291,7 @@ describe('negative_alias eliminates every food carrying the matched alias', () =
     expect(cands[0]?.score).toBe(1.0);
   });
 
-  it('caps unsupported chicken meat below the whole-egg accept threshold', () => {
+  turkishCatalogue('caps unsupported chicken meat below the whole-egg accept threshold', () => {
     const pack = load('tr');
     const r = retrieval();
 
@@ -295,7 +301,7 @@ describe('negative_alias eliminates every food carrying the matched alias', () =
     }
   });
 
-  it('keeps explicit egg phrases as exact whole-egg matches', () => {
+  turkishCatalogue('keeps explicit egg phrases as exact whole-egg matches', () => {
     const pack = load('tr');
     const r = retrieval();
 

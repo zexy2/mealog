@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import pack_installed
 
 from mealog.locales.loader import load
 from mealog.pipeline.normalize import fold
@@ -31,6 +32,13 @@ def confusion_rows() -> list[dict]:
     return [row for row in rows() if row.get("role") == "confusion"]
 
 
+def _skipped(locale: str) -> str | None:
+    """Skip rows whose pack is licence-restricted and not installed."""
+    if pack_installed(locale):
+        return None
+    return f"locale pack {locale!r} is licence-restricted and not installed (run `make pack`)"
+
+
 def query_for(row: dict) -> tuple[str, object]:
     pack = load(row["locale"])
     query = fold(row.get("retrieval_query", row["query"]), pack)
@@ -52,6 +60,8 @@ def test_dataset_has_sixty_turkish_positive_inputs_and_ten_negatives():
     ids=lambda row: f"{row['locale']}-{row['kind']}-{row['query']}",
 )
 def test_positive_variant_ranks_expected_food_first(row: dict):
+    if reason := _skipped(row["locale"]):
+        pytest.skip(reason)
     query, pack = query_for(row)
     candidates = search(query, pack)
     assert candidates, f"no candidates for {row['query']!r}"
@@ -64,6 +74,8 @@ def test_positive_variant_ranks_expected_food_first(row: dict):
     ids=lambda row: f"{row['locale']}-{row['kind']}-{row['query']}",
 )
 def test_negative_variant_abstains_and_never_returns_forbidden_food(row: dict):
+    if reason := _skipped(row["locale"]):
+        pytest.skip(reason)
     query, pack = query_for(row)
     resolved = resolve(query, search(query, pack), allow_abstain=True)
     forbidden = set(row.get("forbidden_food_ids", []))
@@ -77,6 +89,8 @@ def test_negative_variant_abstains_and_never_returns_forbidden_food(row: dict):
     ids=lambda row: f"{row['locale']}-{row['query']}",
 )
 def test_documented_confusion_surfaces_neighbour_but_abstains(row: dict):
+    if reason := _skipped(row["locale"]):
+        pytest.skip(reason)
     query, pack = query_for(row)
     candidates = search(query, pack)
     confusable = row.get("confusable_food_id")

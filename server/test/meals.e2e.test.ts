@@ -15,6 +15,11 @@ import { MealsService, VISION_PORT } from '../src/app/meals.service';
 import { MealsController } from '../src/app/meals.controller';
 import { defaultRateLimiter } from '../src/app/rate-limiter';
 import { VisionInput } from '../src/pipeline/ports';
+import { pack_installed } from './helpers/packs';
+
+// Turkish fixtures and the Turkish catalogue are licence-restricted; the
+// catalogue is installed locally, never committed (docs/licensing.md).
+const turkish = pack_installed('tr') ? it : it.skip;
 
 describe('POST /v1/meals', () => {
   let app: NestExpressApplication;
@@ -30,7 +35,7 @@ describe('POST /v1/meals', () => {
     await app?.close();
   });
 
-  it('accepts JSON fixture input and replays an idempotent result', async () => {
+  turkish('accepts JSON fixture input and replays an idempotent result', async () => {
     const body = {
       idempotency_key: 'http-json-replay',
       sample_id: 'tr_0001',
@@ -256,7 +261,7 @@ describe('POST /v1/meals', () => {
     await defectApp.close();
   });
 
-  it('accepts multipart form fields without an image for fixture replay', async () => {
+  turkish('accepts multipart form fields without an image for fixture replay', async () => {
     const response = await request(app.getHttpServer())
       .post('/v1/meals')
       .field('idempotency_key', 'http-multipart-fixture')
@@ -268,7 +273,7 @@ describe('POST /v1/meals', () => {
     expect(response.body).toMatchObject({ idempotency_key: 'http-multipart-fixture', locale: 'tr' });
   });
 
-  it('scopes the same idempotency key by X-User-Id', async () => {
+  turkish('scopes the same idempotency key by X-User-Id', async () => {
     const first = await request(app.getHttpServer())
       .post('/v1/meals')
       .set('X-User-Id', 'user-a')
@@ -283,7 +288,7 @@ describe('POST /v1/meals', () => {
     expect(first.body).not.toEqual(second.body);
   });
 
-  it('validates the V0-V3 config set and rejects unknown configs with 422', async () => {
+  turkish('validates the V0-V3 config set and rejects unknown configs with 422', async () => {
     for (const config of ['V0', 'V1', 'V2', 'V3']) {
       const response = await request(app.getHttpServer())
         .post('/v1/meals')
@@ -333,7 +338,7 @@ describe('POST /v1/meals', () => {
     expect(response.body).toEqual({ detail: 'image exceeds 10 MiB limit' });
   });
 
-  it('returns 422 for a JSON request without an input source', async () => {
+  turkish('returns 422 for a JSON request without an input source', async () => {
     const response = await request(app.getHttpServer())
       .post('/v1/meals')
       .send({ idempotency_key: 'http-no-input' });
@@ -393,7 +398,7 @@ describe('POST /v1/meals', () => {
     expect(malformed.body).toEqual({ detail: 'invalid JSON request' });
   });
 
-  it('returns typed 422 for text-only inputs in fixture mode instead of unhandled 500', async () => {
+  turkish('returns typed 422 for text-only inputs in fixture mode instead of unhandled 500', async () => {
     const response = await request(app.getHttpServer())
       .post('/v1/meals')
       .send({
@@ -430,7 +435,7 @@ describe('POST /v1/meals', () => {
     expect(invalidEvent.body).toEqual({ detail: 'invalid telemetry event_type' });
   });
 
-  it('GDPR delete purges user meal cache and resets user rate limiter', async () => {
+  turkish('GDPR delete purges user meal cache and resets user rate limiter', async () => {
     const userId = 'gdpr-e2e-user';
     const key = 'gdpr-purge-key';
 
@@ -473,7 +478,7 @@ describe('POST /v1/meals', () => {
     expect(body2.items[0]?.food_id).toBe('tr.simit');
   });
 
-  it('rejects an empty idempotency key with 422', async () => {
+  turkish('rejects an empty idempotency key with 422', async () => {
     const response = await request(app.getHttpServer())
       .post('/v1/meals')
       .send({
@@ -488,7 +493,7 @@ describe('POST /v1/meals', () => {
     expect(body.detail).toBe('invalid JSON request');
   });
 
-  it('returns 409 Conflict when the same idempotency key is reused with a different payload', async () => {
+  turkish('returns 409 Conflict when the same idempotency key is reused with a different payload', async () => {
     const key = `conflict-test-key-${Date.now()}`;
     const userId = `conflict-user-${Date.now()}`;
 
@@ -518,7 +523,7 @@ describe('POST /v1/meals', () => {
     expect(body2.detail).toBe('idempotency key reused with different request payload');
   });
 
-  it('rejects path-traversal or malformed sample_id with 422', async () => {
+  turkish('rejects path-traversal or malformed sample_id with 422', async () => {
     const maliciousSampleIds = ['../../package', '../reports/scorecard', '/etc/hosts', 'tr_0001; rm -rf'];
 
     for (const sampleId of maliciousSampleIds) {
@@ -538,7 +543,7 @@ describe('POST /v1/meals', () => {
     }
   });
 
-  it('returns 422 for unrecorded image upload in fixture mode instead of 500', async () => {
+  turkish('returns 422 for unrecorded image upload in fixture mode instead of 500', async () => {
     // 1x1 transparent PNG
     const unrecordedPng = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -557,7 +562,7 @@ describe('POST /v1/meals', () => {
     expect(body.detail).toMatch(/fixture replay has no recorded response/);
   });
 
-  it('rejects in-flight race with conflicting payloads with 409 Conflict', async () => {
+  turkish('rejects in-flight race with conflicting payloads with 409 Conflict', async () => {
     const key = `inflight-race-${Date.now()}`;
     const userId = 'race-user';
 
@@ -586,7 +591,7 @@ describe('POST /v1/meals', () => {
     expect(statuses).toEqual([200, 409]);
   });
 
-  it('GDPR delete during an in-flight request does not re-insert the purged meal into completed cache', async () => {
+  turkish('GDPR delete during an in-flight request does not re-insert the purged meal into completed cache', async () => {
     const mealsService = app.get(MealsService);
     const key = `gdpr-inflight-key-${Date.now()}`;
     const userId = `gdpr-race-user-${Date.now()}`;
@@ -621,7 +626,7 @@ describe('POST /v1/meals', () => {
     expect(secondResult.items[0]?.food_id).toBe('tr.simit');
   });
 
-  it('allows idempotent replay even after the rate limit quota is exhausted', async () => {
+  turkish('allows idempotent replay even after the rate limit quota is exhausted', async () => {
     const userId = `rate-limit-replay-user-${Date.now()}`;
     const key = `completed-key-${Date.now()}`;
 
@@ -677,7 +682,7 @@ describe('POST /v1/meals', () => {
     expect(replayBody.items[0]?.food_id).toBe('tr.kuru_fasulye');
   });
 
-  it('rejects oversized idempotency keys with 422', async () => {
+  turkish('rejects oversized idempotency keys with 422', async () => {
     const hugeKey = 'a'.repeat(300);
     const res = await request(app.getHttpServer())
       .post('/v1/meals')
@@ -691,7 +696,7 @@ describe('POST /v1/meals', () => {
     expect(res.status).toBe(422);
   });
 
-  it('returns 422 for unrecorded sample_id like tr_999999 instead of 500', async () => {
+  turkish('returns 422 for unrecorded sample_id like tr_999999 instead of 500', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/meals')
       .send({
@@ -705,7 +710,7 @@ describe('POST /v1/meals', () => {
     expect(body.detail).toMatch(/fixture replay has no recorded response/);
   });
 
-  it('allows concurrent in-flight burst of requests on the same key without hitting 429', async () => {
+  turkish('allows concurrent in-flight burst of requests on the same key without hitting 429', async () => {
     const mealsController = app.get(MealsController);
     const userId = 'inflight-burst-user-123';
     const burstId = 'inflight-burst-id-123';

@@ -1,5 +1,6 @@
 """Portion hints must preserve quantity evidence instead of silently dropping it."""
 import pytest
+from conftest import requires_pack
 
 from mealog.domain.models import PerceivedItem
 from mealog.locales.loader import load
@@ -18,6 +19,7 @@ from mealog.pipeline.normalize import normalize, parse_portion
         ("tr", "bir buçuk kepçe", 1.5, "kepce"),
     ],
 )
+@requires_pack("tr")
 def test_fraction_and_word_quantities_are_parsed(
     locale: str, hint: str, expected_quantity: float, expected_unit: str
 ):
@@ -32,12 +34,14 @@ def test_mixed_numeric_fraction_is_parsed():
     assert unit == "cups"
 
 
+@requires_pack("tr")
 def test_known_unit_without_quantity_keeps_unit_but_no_quantity_evidence():
     quantity, unit = parse_portion("kepçe", load("tr"))
     assert quantity is None
     assert unit == "kepce"
 
 
+@requires_pack("tr")
 def test_vision_hint_never_becomes_user_quantity():
     item = PerceivedItem(
         surface_form="simit",
@@ -54,6 +58,7 @@ def test_vision_hint_never_becomes_user_quantity():
     )
 
 
+@requires_pack("tr")
 def test_structured_vision_count_survives_without_hint_parsing():
     item = PerceivedItem(
         surface_form="simit",

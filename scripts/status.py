@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -159,11 +160,44 @@ def probe_email() -> Probe:
 
 
 def counts() -> dict:
-    packs = sorted(p.name for p in (ROOT / "locale_packs").iterdir()
-                   if (p / "pack.yaml").exists())
-    foods = sum(len([x for x in (ROOT / "locale_packs" / p / "foods.jsonl")
-                     .read_text(encoding="utf-8").splitlines() if x.strip()]) for p in packs)
-    return {"packs": packs, "foods": foods}
+    """Count what the committed catalogue holds, not what this machine holds.
+
+    A pack's metadata ships even when its catalogue does not: the Turkish rows
+    are `restricted-noncommercial` and installed locally (docs/licensing.md).
+    Counting the working directory would make the generated status file depend
+    on whether the developer ran `make pack`, so a clean clone and a machine
+    with the pack would disagree. Committed content is the only reproducible
+    answer; installed extras are reported as an install step instead.
+    """
+    root = ROOT / "locale_packs"
+    packs = sorted(p.name for p in root.iterdir() if (p / "pack.yaml").exists())
+    committed = _committed_catalogue_files(root)
+    catalogue = sorted({Path(path).parent.name for path in committed
+                        if Path(path).name == "foods.jsonl"})
+    foods = sum(
+        len([x for x in (ROOT / path).read_text(encoding="utf-8").splitlines() if x.strip()])
+        for path in committed if Path(path).name == "foods.jsonl"
+    )
+    return {
+        "packs": packs,
+        "installable": [p for p in packs if p not in catalogue],
+        "foods": foods,
+    }
+
+
+def _committed_catalogue_files(root: Path) -> list[str]:
+    """Tracked catalogue paths, or the working tree when Git is unavailable."""
+    try:
+        listed = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "--", str(root.relative_to(ROOT))],
+            capture_output=True, text=True, check=True,
+        ).stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        listed = [
+            str(path.relative_to(ROOT)) for path in root.rglob("*.jsonl")
+        ]
+    return [path for path in listed if Path(path).name in
+            {"foods.jsonl", "aliases.jsonl", "units.jsonl"}]
 
 
 def render() -> str:
@@ -221,6 +255,9 @@ def render() -> str:
           "| | |", "|---|---:|",
           f"| Locale packs | {len(c['packs'])} ({', '.join(c['packs'])}) |",
           f"| Canonical foods | {c['foods']} |",
+          "| Packs installed separately | "
+          + (", ".join(c["installable"]) + " (licence-restricted; `make pack`)" if c["installable"]
+             else "none — every defined pack ships") + " |",
           f"| Golden-set samples | {n_golden} |",
           "",
           "## Verification boundary",

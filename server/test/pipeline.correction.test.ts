@@ -6,6 +6,11 @@ import {
   makeResolvedItem,
 } from '../src/domain/models';
 import { applyCorrections, CorrectionValidationError } from '../src/pipeline/correction';
+import { pack_installed } from './helpers/packs';
+
+// Corrections resolve against the Turkish catalogue, which is installed
+// locally and never committed (docs/licensing.md).
+const turkish = pack_installed('tr') ? describe : describe.skip;
 
 function meal() {
   return makeMealLog({
@@ -55,7 +60,7 @@ function mealWithAbstain() {
   return result;
 }
 
-describe('server-side meal correction', () => {
+turkish('server-side meal correction', () => {
   it('recomputes count, band, nutrients and totals while preserving ayran', () => {
     const result = applyCorrections({
       meal: meal(),

@@ -131,6 +131,7 @@ food, which is why the gate abstains instead of guessing.
 | Occluded photographed counts | Two stacked simits become `quantity: null`, 100 g with a 65–145 g band, and a count question | Prevents silent undercount but adds review friction |
 | Legume/soup near-neighbours | Some inputs still surface egg, bean, or soup neighbours; low confidence prevents silent commit | Proposed identity can still be wrong |
 | Thin Turkish catalogue | 57 rows; common long-tail dishes are absent | More abstention and correction work |
+| Catalogue availability | The Turkish rows are licence-restricted and installed separately (`make pack`); without them `tr` answers 503 and only `en_US`/`ja_JP` serve | A clone is not a drop-in Turkish demo until the pack is installed |
 | South Asian coverage | n=16, 0% coverage, Item F1 0.00 | Weakest market is unusable in this evaluation set |
 
 Prepared pasta, bulgur, mantı, Turkish coffee, and tea probes abstain instead of
@@ -180,9 +181,11 @@ Original Mealog software and documentation are MIT-licensed under
 data, which keeps its own terms:
 
 - Turkish values use required visible attribution to
-  [TürKomp, Ulusal Gıda Kompozisyon Veri Tabanı, version 1.0](https://turkomp.tarimorman.gov.tr/)
-  and remain `restricted-noncommercial`; commercial use needs a separate
-  agreement, and the pack is excluded from the MIT licence.
+  [TürKomp, Ulusal Gıda Kompozisyon Veri Tabanı, version 1.0](https://turkomp.tarimorman.gov.tr/),
+  remain `restricted-noncommercial`, and are excluded from the MIT licence.
+  Commercial use needs a separate agreement, so the catalogue itself is not
+  committed: `locale_packs/tr/` ships the pack metadata and
+  `python scripts/install_restricted_pack.py` installs the rows locally.
 - The Japanese pack is **unverified legacy evaluation data**, not verified MEXT
   data, and is rejected in commercial mode.
 - The US pack identifies USDA FoodData Central as its public-domain source.

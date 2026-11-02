@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { VisionProviderError } from '../adapters/vision.gemini';
+import { PackUnavailableError } from '../locales/loader';
 
 interface HttpResponse {
   status(code: number): HttpResponse;
@@ -39,6 +40,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
         category: exception.category,
         retry_attempted: exception.attempts > 1,
         attempts: exception.attempts,
+      });
+      return;
+    }
+
+    if (exception instanceof PackUnavailableError) {
+      // The pack exists and its licence is declared; this deployment just does
+      // not carry the restricted catalogue. That is a configuration state, not
+      // a client error, so it must not look like an unknown locale.
+      response.status(503).json({
+        detail: 'locale catalogue is not installed in this deployment',
+        locale: exception.locale,
+        reason: exception.reason,
       });
       return;
     }

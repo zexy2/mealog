@@ -110,7 +110,9 @@ same numbers, and `make claims` checks that it still does.
 - **Perception, not retrieval, is the ceiling.** Retrieval is 30/30
   Recall@1 in the published (redistributable) scope; identity over photographed
   plates is 0.38 Item F1, and most of that is a corrected annotation, not a
-  better model (D25).
+  better model (D25). The [diagnosis](identity-diagnosis.md) is generated from
+  the fixtures: 177 of 331 truth items were never named by the model, so a
+  perfect resolver would still cap at 0.64.
 - **Mobile advisories are open** and need an Expo-aware upgrade, not a lockfile
   rewrite ([why](security.md#8-dependency-policy)).
 - **Demo mode resolves names locally** from a small fixed demo catalogue

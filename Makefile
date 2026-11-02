@@ -1,6 +1,6 @@
 PYTHON ?= $(shell if [ -f $(CURDIR)/server/.venv/bin/python ]; then echo "$(CURDIR)/server/.venv/bin/python"; elif which python3 >/dev/null 2>&1; then echo "python3"; else echo "python"; fi)
 
-.PHONY: install eval eval-live eval-restricted record claims test lint invariants licence pack audit status check api db clean
+.PHONY: install eval eval-live eval-restricted record claims diagnose test lint invariants licence pack audit status check api db clean
 
 install:
 	cd server && $(PYTHON) -m pip install -e ".[dev]" -q
@@ -29,6 +29,11 @@ eval-restricted:
 # evaluation measures. Both sides of the contract, checked mechanically.
 claims:
 	$(PYTHON) scripts/check_readme_claims.py
+
+# Where the identity errors come from. Regenerates the committed report; the
+# check in `make check` fails when it no longer matches the fixtures.
+diagnose:
+	$(PYTHON) eval/identity_diagnosis.py --out docs/identity-diagnosis.md
 
 test:
 	cd server && $(PYTHON) -m pytest -q
@@ -61,6 +66,7 @@ check: lint test invariants licence
 	$(PYTHON) scripts/status.py --check
 	$(PYTHON) eval/harness.py --configs V0,V1,V2,V3 --check-regression
 	$(PYTHON) scripts/check_readme_claims.py
+	$(PYTHON) eval/identity_diagnosis.py --check
 
 db:
 	docker compose up -d db

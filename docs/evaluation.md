@@ -270,6 +270,38 @@ counts to the current replay. The present scorecard does not expose enough
 information to assign the 70 deferrals to those causal buckets without a new,
 reproducible report. No threshold or catalogue value is changed here.
 
+## Where the identity errors come from
+
+Item F1 is one number; the explanation has to be checkable.
+`python eval/identity_diagnosis.py` replays the same fixtures with the same
+retrieval and resolver, charges every truth item and every false positive to a
+stage, and cross-checks its own totals against the scorecard. The generated
+report is [identity-diagnosis.md](identity-diagnosis.md); `make check` fails if
+the committed copy no longer matches the fixtures.
+
+| Outcome | Truth items (n=331) |
+|---|---:|
+| Resolved (TP) | 91 (27.5%) |
+| Ranked first, refused by the gate | 39 (11.8%) |
+| In a top-5 list, not first | 24 (7.3%) |
+| Never named by the model | 177 (53.5%) |
+
+Two consequences follow, and both constrain what a fix can honestly claim:
+
+- A perfect resolver over the foods the model did name would reach at most Item
+  F1 **0.64**, because 177 truth items never entered a candidate list. Lowering
+  the accept threshold, adding aliases or re-ranking cannot recover them; only
+  better perception, or a newly recorded prompt, can.
+- Most of those misses are small. `us.olive_oil` alone is 61 of the 177, at a
+  median source mass of 3.9 g, and cooked kale is 16 at 3.2 g. The truth is a
+  recipe, not a plate: part of the remaining error is not visible in any
+  photograph and would not shrink under a perfect detector. That ceiling is
+  stated rather than engineered around by deleting the rows.
+
+Of the 62 false positives, 49 are foods the model named verbatim and 60 sit on
+rows whose truth is incomplete; 13 are similarity-only bindings, the only class
+a better ranker can fix.
+
 ## Error taxonomy
 
 The taxonomy has twelve `ErrorCode` values, but the harness only derives codes

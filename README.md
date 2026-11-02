@@ -93,7 +93,7 @@ reference tooling, not the delivered backend.
 ## Design decisions
 
 These are the choices that shaped the system, each with the trade-off it cost.
-The full record is [decision log D1–D22](docs/decisions.md).
+The full record is [decision log D1–D23](docs/decisions.md).
 
 | Decision | What it buys | What it costs |
 | --- | --- | --- |
@@ -102,6 +102,7 @@ The full record is [decision log D1–D22](docs/decisions.md).
 | **Worst-cuisine metric, read with coverage** ([D3](docs/decisions.md#d3)) | Distribution shift stays visible instead of hidden by an average | Small buckets are noisy and less flattering |
 | **Restricted data is installed, not committed** ([D21](docs/decisions.md#d21)) | Licence terms stop contradicting the repository's own grant | A clean clone needs one install step for Turkish |
 | **The client asks the catalogue, never guesses** ([D22](docs/decisions.md#d22)) | One place decides what a food is; D1 holds at the screen too | A typed food needs a round trip |
+| **Published numbers are the clean-clone ones** ([D23](docs/decisions.md#d23)) | Every quoted metric is reproducible and checked by `make claims` | The headline is worse, and restricted rows are named but unmeasured |
 | **Expo mobile client, not a web app** ([D9](docs/decisions.md#d9)) | Real camera and native review flow | Device compatibility needs separate runtime verification |
 | **NestJS edge plus Python evaluation harness** ([D12](docs/decisions.md#d12)) | Typed HTTP surface plus reproducible offline measurement | Two runtimes and parity ceremony |
 
@@ -111,22 +112,29 @@ Metrics below are from an offline replay of recorded, non-synthetic provider
 responses. They are presented here because they are the honest state of the
 project, not because they are flattering.
 
-- **10/80 commit, 70/80 ask:** 12% grounded coverage in the V3 configuration.
-- **Item F1 0.15; FP rate 86.0%:** the current identity layer is not accurate
+**The snapshot is what a clean clone reproduces.** It covers the two locale
+packs the repository can redistribute (`en_US`, `ja_JP`). The licence-restricted
+Turkish catalogue adds 3 golden rows and 107 retrieval variants and is excluded
+here, so `make eval` on a fresh checkout produces exactly these numbers.
+`make claims` re-runs both evaluations and fails if this section disagrees with
+them.
+
+- **7/77 commit, 70/77 ask:** 9% grounded coverage in the V3 configuration.
+- **Item F1 0.13; FP rate 88.2%:** the current identity layer is not accurate
   enough for broad automatic logging.
 - **Calorie MAPE 12.7% on 2/2 rows:** too small a denominator for a general
   calorie-accuracy claim.
 
 `ask` is a safe routing outcome, not a claim that every deferred candidate was
 correct. The FP metric includes unsupported proposed items even when the system
-defers them; it is not an 86% silent-commit rate. These are fixture-replay
+defers them; it is not an 88.2% silent-commit rate. These are fixture-replay
 results, not live-provider accuracy. The fixtures were recorded with
 `gemini-flash-lite-latest`; they do not measure the live adapter default,
 `gemini-3.6-flash`. Full cuisine slices, denominators, metric definitions, and
 error taxonomy are in [docs/evaluation.md](docs/evaluation.md).
 
-**Retrieval itself is strong where the catalogue covers the food:** 145 variants,
-122/122 positive Recall@1, MRR 1.000, 0/22 absent-food false accepts. The
+**Retrieval itself is strong where the catalogue covers the food:** 38 variants,
+30/30 positive Recall@1, MRR 1.000, 0/8 absent-food false accepts. The
 weak measured layer is perception and closed-set matching over photographed
 food, which is why the gate abstains instead of guessing.
 
@@ -257,11 +265,12 @@ docs/submission/     Original interview deliverable, kept for provenance
 
 `main` is protected: every change lands through a pull request that passes the
 required `check` job (lint, both test suites, invariant and licence-boundary
-checks, status freshness, and the eval regression guard). There is no bypass,
-including for the maintainer.
+checks, status freshness, the eval regression guard, and the README-claim
+check). There is no bypass, including for the maintainer.
 
 ```sh
 make check     # what CI runs
+make claims    # README numbers vs. this checkout's evaluation
 make pack      # optional: install the licence-restricted Turkish catalogue
 ```
 

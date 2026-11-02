@@ -1,7 +1,7 @@
 # Evaluation methodology
 
 > **Headline result.** The system knows what it measured and refuses to guess
-> beyond it. On the current 80-sample replay it commits on 10 samples and defers
+> beyond it. On the published 77-sample replay it commits on 7 samples and defers
 > on 70; the gate is deliberately conservative, and the weakest cuisine bucket is
 > reported rather than averaged away. Read the numbers below as a measurement
 > of limits, not as a product accuracy claim.
@@ -19,12 +19,18 @@ harness-compatible numeric `grams` field, and `truth_axes` with separate
 identity and portion tiers. Every food ID and mass field carries a provenance
 string in the form `dataset=...; record_id=...; field=...`.
 
-The current manifest contains **n=80** samples, with 80 matching recorded
-provider fixtures. Generated scorecards replay the complete committed manifest.
-The rows are distributed across six cuisine buckets: western 12,
+The committed manifest contains **n=80** samples, with 80 matching recorded
+provider fixtures. The **published replay covers 77**: three rows are Turkish,
+and the Turkish catalogue may not be redistributed, so a clean clone cannot
+load them. They are excluded by an explicit rule rather than skipped by
+accident; `--include-restricted` adds them on a machine that installed the pack
+with `make pack`. See [Evidence scope](#evidence-scope-and-the-checked-readme-contract).
+
+The manifest's 80 rows are distributed across six cuisine buckets: western 12,
 mediterranean 12, east_asian 16, other_mixed 8, south_asian 16, and
-latin_american 16. The conservative overall tiers are tier_1 74, tier_2 1,
-and tier_3 5.
+latin_american 16. After the scope rule, mediterranean is 9. The conservative
+overall tiers are tier_1 74, tier_2 1, and tier_3 5 in the manifest; the
+published replay has tier_3 2.
 
 The conservative overall tier does not hide axis differences:
 
@@ -56,6 +62,45 @@ An error against a Tier 3 label is weaker evidence than the same error against
 a Tier 1 label. Tiers are never silently combined: the harness reports the
 same evaluation by the conservative overall tier as well as by cuisine, while
 the manifest preserves the per-axis distinction for review.
+
+## Evidence scope and the checked README contract
+
+Published numbers are defined as **what a clean clone reproduces**, not as the
+best measurement the maintainer can obtain. The distinction became necessary
+when the README published a run made with the licence-restricted Turkish
+catalogue installed: the same command on a fresh checkout produced different
+numbers (9% coverage instead of 12%, Item F1 0.13 instead of 0.15), and
+`eval/retrieval_eval.py` crashed because the pack was absent. A claim the
+repository's own tree cannot support is worse than an unflattering number.
+
+`eval/locale_scope.py` owns the rule. A locale whose `pack.yaml` declares
+`license: restricted-noncommercial` is excluded from every published
+denominator; `--include-restricted` adds it back for a local measurement. Both
+`eval/harness.py` and `eval/retrieval_eval.py` take their scope from that one
+module, so the two cannot disagree about which markets are in the published set,
+and `eval/decompose_real_error.py` uses it too, so the diagnostic the docs
+point at also runs on a clean clone.
+
+For the current tree the exclusion is:
+
+| Evidence | Published | Excluded by licence |
+|---|---:|---:|
+| Golden rows (`eval/golden/manifest.jsonl`) | 77 | 3 |
+| Retrieval variants (`eval/golden/query_variants.jsonl`) | 38 | 107 |
+
+Both evaluations can write the README-facing numbers with `--summary-json`.
+`scripts/check_readme_claims.py` (also `make claims`) parses the README's
+`## Evidence snapshot`, runs both evaluations with the published scope, and
+fails with the exact replacement text when they disagree. It additionally
+rejects an internally inconsistent summary (`commit + ask > rows`,
+`scored > eligible`), so a typo cannot pass by matching another typo. CI runs
+the same check next to the eval regression guard, which means the README's
+least flattering numbers are now the repository's most tightly checked claim.
+
+`--include-restricted` exists for maintainers who installed the pack with
+`make pack`; `make eval-restricted` writes those scorecards. Those numbers are
+a local measurement, not the published snapshot, because a reader cannot
+reproduce them from the repository alone.
 
 ## Headline and per-sample metrics
 
@@ -126,31 +171,31 @@ tier_2 row in that denominator.
 
 ## Current replay and V3 decomposition
 
-The current offline replay on **n=80** produces these ablation rows. V3's
+The current offline replay on **n=77** produces these ablation rows. V3's
 worst-cuisine (`western`) MAPE is **12.7%**, computed over **n=2** covered,
-calorie-eligible samples. The V3 coverage is **12%** (**10/80** committed
-samples), while **70/80** samples ask for clarification. These are current
+calorie-eligible samples. The V3 coverage is **9%** (**7/77** committed
+samples), while **70/77** samples ask for clarification. These are current
 outputs of `python eval/harness.py`, not claims about unmeasured provider
 behaviour.
 
 | Config | Worst-cuisine MAPE | Mean MAPE | Spread | Coverage | Calorie eligible | Calorie scored | Item F1 | FP rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | V0 | 100.0% (western) | 100.0% | 1.00x | 100% | 2 | 2 | 0.00 | 100.0% |
-| V1 | 12.7% (western) | 12.7% | 1.00x | 44% | 2 | 2 | 0.14 | 89.0% |
-| V2 | 12.7% (western) | 12.7% | 1.00x | 44% | 2 | 2 | 0.14 | 89.0% |
-| V3 | 12.7% (western) | 12.7% | 1.00x | 12% | 2 | 2 | 0.15 | 86.0% |
+| V1 | 12.7% (western) | 12.7% | 1.00x | 42% | 2 | 2 | 0.12 | 90.5% |
+| V2 | 12.7% (western) | 12.7% | 1.00x | 42% | 2 | 2 | 0.12 | 90.5% |
+| V3 | 12.7% (western) | 12.7% | 1.00x | 9% | 2 | 2 | 0.13 | 88.2% |
 
 The current V3 cuisine slices are:
 
 | Cuisine | n | Coverage | Calorie eligible | Calorie scored | Item F1 | kcal MAPE | within +/-20% | FP rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | western | 12 | 33% | 2 | 2 | 0.43 | 12.7% | 50.0% | 66.7% |
-| mediterranean | 12 | 25% | 0 | 0 | 0.22 | — | — | 71.4% |
 | east_asian | 16 | 6% | 0 | 0 | 0.10 | — | — | 90.0% |
 | other_mixed | 8 | 0% | 0 | 0 | 0.08 | — | — | 91.7% |
+| mediterranean | 9 | 0% | 0 | 0 | 0.00 | — | — | 100.0% |
 | south_asian | 16 | 0% | 0 | 0 | 0.00 | — | — | 100.0% |
 | latin_american | 16 | 12% | 0 | 0 | 0.06 | — | — | 95.7% |
-| **overall** | **80** | **12%** | **2** | **2** | **0.15** | **12.7%** | **50.0%** | **86.0%** |
+| **overall** | **77** | **9%** | **2** | **2** | **0.13** | **12.7%** | **50.0%** | **88.2%** |
 
 The same V3 calculations by conservative overall tier are:
 
@@ -158,45 +203,55 @@ The same V3 calculations by conservative overall tier are:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | tier_1 | 74 | 8% | 1 | 1 | 0.12 | 25.4% | 0.0% | 89.3% |
 | tier_2 | 1 | 100% | 1 | 1 | 1.00 | 0.0% | 100.0% | 0.0% |
-| tier_3 | 5 | 60% | 0 | 0 | 0.77 | — | — | 28.6% |
-| **overall** | **80** | **12%** | **2** | **2** | **0.15** | **12.7%** | **50.0%** | **86.0%** |
+| tier_3 | 2 | 0% | 0 | 0 | 0.40 | — | — | 66.7% |
+| **overall** | **77** | **9%** | **2** | **2** | **0.13** | **12.7%** | **50.0%** | **88.2%** |
 
-> **Methodological Context on False Positive (FP) Rate:** The 86.0% FP rate is measured across all 80 samples and counts rejected/abstained samples. Importantly, 64.4% (87/135) of counted false positives arise from unmapped recipe ingredients (such as olive oil `us.olive_oil` or seasoning) in multi-dish reference recipes that the perception layer correctly observed but the canonical single-dish catalogue does not map. Furthermore, 70 of the 80 samples ended in safe `ask` (abstention), meaning ungrounded candidates were never committed to the user's log.
+> **Methodological Context on False Positive (FP) Rate:** The 88.2% FP rate is
+> measured across every sample in scope and counts rejected and abstained
+> proposals, not only committed ones. Most counted false positives are unmapped
+> recipe ingredients (olive oil, seasoning) in multi-dish reference recipes: the
+> perception layer observed them correctly, but the canonical single-dish
+> catalogue does not map them. And 70 of the 77 samples ended in a safe `ask`, so
+> no ungrounded candidate reached the user's log. The rate is a property of the
+> identity layer's proposals, not evidence that 88% of logged meals were wrong.
 
-`python eval/decompose_real_error.py` also replays all 80 committed fixtures
-without provider calls. Its raw mapped-total output has nine covered rows with
-positive mapped calories, but seven are partial-truth rows and therefore are
-not calorie-eligible. The harness remains the authority for calorie metrics;
-only the two complete rows below enter the scorecard denominator:
+`python eval/decompose_real_error.py` also replays the committed fixtures
+without provider calls. It takes the same published scope as the harness, so it
+runs on a clean clone; `--include-restricted` adds the excluded locale. Its raw
+mapped-total output has seven covered rows with positive mapped calories, but
+five are partial-truth rows and therefore are not calorie-eligible. The harness
+remains the authority for calorie metrics; only the two complete rows below
+enter the scorecard denominator:
 
 | Rank | Sample | APE | Share of summed APE |
 |---:|---|---:|---:|
 | 1 | n5k_0002 | 25.4% | 100.0% |
 | 2 | pkg_0001 | 0.0% | 0.0% |
 
-The seven partial-truth rows that the decomposition helper maps while V3
-commits are `n5k_0003`, `n5k_0004`, `n5k_0005`, `n5k_0006`, `n5k_0010`,
-`n5k_0016`, and `n5k_0058`. Their mapped calorie totals are diagnostic only;
+The five partial-truth rows that the decomposition helper maps while V3
+commits are `n5k_0003`, `n5k_0005`, `n5k_0010`, `n5k_0016`, and `n5k_0058`.
+Their mapped calorie totals are diagnostic only;
 they are not complete meal truth and must not enter MAPE or within-20%
 metrics. The two exact-identity counterfactuals use the complete rows: perfect
 identity with observed grams is **12.69% MAPE** (`n=2`), while perfect grams
 with observed identity is **0.00% MAPE** (`n=2`). There is no covered identity
-mismatch in this replay. Seventy-two manifest rows have partial truth and are
-not calorie-eligible; seven of those rows are covered in the current V3 run,
-but none enters the APE denominator. The decomposition script's detailed table
-shows mapped truth for inspection, not complete meal calories for those rows.
+mismatch in this replay. Seventy-two in-scope manifest rows have partial truth
+and are not calorie-eligible; five of those rows are covered in the current V3
+run, but none enters the APE denominator. The decomposition script's detailed
+table shows mapped truth for inspection, not complete meal calories for those
+rows.
 
 The complete table generated by `python eval/decompose_real_error.py` is
 intentionally not pasted here: most of its rows are deferred or have partial
 or zero-truth nutrition, so their mapped calorie sums are not complete meal
 calories. The two-row distribution above is the honest calorie decomposition
-supported by the current data; the helper's seven partial-row APEs are not
+supported by the current data; the helper's five partial-row APEs are not
 evaluation metrics.
 
-### Why V3 answered only 12% of meals
+### Why V3 answered only 9% of meals
 
-The current harness commits **10/80** samples and routes **70/80** to `ask`, for
-**12% coverage** after integer percentage formatting. `E12=70` is generated by
+The current harness commits **7/77** samples and routes **70/77** to `ask`, for
+**9% coverage** after integer percentage formatting. `E12=70` is generated by
 the same replay. This is the current measurable statement: the safe gate trades
 substantial coverage for fewer silent commits.
 
@@ -228,8 +283,8 @@ The error-distribution section lists all twelve codes plus `unclassified` and
 reports sample counts and their share of tagged samples. It is a distribution
 of tags, not a claim that a human reviewed and assigned every specific cause.
 
-For the current V3 replay on **n=80**, the observable tag counts are `E3=61`,
-`E4=69`, `E7=11`, `E12=68`, and `unclassified=74`; the other eight codes are
+For the current V3 replay on **n=77**, the observable tag counts are `E3=61`,
+`E4=69`, `E7=10`, `E12=70`, and `unclassified=74`; the other eight codes are
 zero. Tags are not mutually exclusive, so these counts do not sum to the
 sample count.
 
@@ -256,8 +311,10 @@ The 80 recorded provider responses are real inputs from [#3](https://github.com/
 and this manifest uses source-backed labels where the upstream datasets provide
 them. The baseline in `eval/reports/baseline.json` is deliberately retained
 unchanged here; this documentation refresh does not reset it. Current
-scorecards replay **n=80** and expose complete-positive-truth eligibility
-separately from coverage. Seventy-two rows are partial truth and two complete,
-positive-truth rows are calorie-eligible; seven partial rows are covered by V3
-but remain outside the calorie denominator. Identity-only rows carry Tier 3
-portion truth and do not support calorie claims.
+scorecards replay the **77** rows a clean clone can load (the Turkish manifest
+rows are outside the published scope) and expose complete-positive-truth
+eligibility separately from coverage. Seventy-two of the 77 in-scope rows are
+partial truth and two complete, positive-truth rows are calorie-eligible; five
+partial rows are covered by V3 but remain outside the calorie denominator.
+Identity-only rows carry Tier 3 portion truth and do not support calorie
+claims.

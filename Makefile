@@ -1,6 +1,6 @@
 PYTHON ?= $(shell if [ -f $(CURDIR)/server/.venv/bin/python ]; then echo "$(CURDIR)/server/.venv/bin/python"; elif which python3 >/dev/null 2>&1; then echo "python3"; else echo "python"; fi)
 
-.PHONY: install eval eval-live test lint invariants licence pack audit status check api db clean
+.PHONY: install eval eval-live eval-restricted claims test lint invariants licence pack audit status check api db clean
 
 install:
 	cd server && $(PYTHON) -m pip install -e ".[dev]" -q
@@ -12,6 +12,18 @@ eval:
 # Live: calls the real vision provider. Requires GEMINI_API_KEY.
 eval-live:
 	$(PYTHON) eval/harness.py --configs V3 --live --out eval/reports/scorecard-live.md
+
+# Full set, including the licence-restricted catalogue (install it with
+# `make pack`). A local measurement: a clean clone cannot reproduce it, so it is
+# not what the README publishes. See docs/evaluation.md.
+eval-restricted:
+	$(PYTHON) eval/harness.py --configs V0,V1,V2,V3 --include-restricted --out eval/reports/scorecard-restricted.md
+	$(PYTHON) eval/retrieval_eval.py --include-restricted --out eval/reports/retrieval-restricted.md
+
+# The README publishes numbers; this fails when they stop being the numbers the
+# evaluation measures. Both sides of the contract, checked mechanically.
+claims:
+	$(PYTHON) scripts/check_readme_claims.py
 
 test:
 	cd server && $(PYTHON) -m pytest -q
@@ -43,6 +55,7 @@ status:
 check: lint test invariants licence
 	$(PYTHON) scripts/status.py --check
 	$(PYTHON) eval/harness.py --configs V0,V1,V2,V3 --check-regression
+	$(PYTHON) scripts/check_readme_claims.py
 
 db:
 	docker compose up -d db

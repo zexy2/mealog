@@ -29,17 +29,21 @@ from mealog.locales.loader import load
 from mealog.pipeline import normalize, nutrition, retrieval
 from mealog.pipeline.runner import CONFIGS, run
 
+sys.path.insert(0, str(ROOT / "eval"))
+from locale_scope import evidence_scope, exclusion_note  # noqa: E402
 
 MANIFEST = ROOT / "eval" / "golden" / "manifest.jsonl"
 FIXTURE_DIR = ROOT / "eval" / "fixtures"
 
 
-def _load_manifest() -> list[dict[str, Any]]:
-    rows = []
-    for line in MANIFEST.read_text().splitlines():
-        if line.strip():
-            rows.append(json.loads(line))
-    return rows
+def _load_manifest(include_restricted: bool = False) -> list[dict[str, Any]]:
+    """Manifest rows in the published scope, for the same reason the harness
+    uses it: a diagnostic a clean clone cannot run is not a diagnostic."""
+    rows = [json.loads(line) for line in MANIFEST.read_text().splitlines() if line.strip()]
+    locales, excluded = evidence_scope({row["locale"] for row in rows}, include_restricted)
+    if excluded:
+        print(exclusion_note(locales, excluded), file=sys.stderr)
+    return [row for row in rows if row["locale"] in set(locales)]
 
 
 def _fixture(sample_id: str) -> dict[str, Any]:
@@ -323,10 +327,15 @@ def main() -> int:
         type=Path,
         help="write Markdown to this path instead of stdout",
     )
+    parser.add_argument(
+        "--include-restricted",
+        action="store_true",
+        help="also decompose locales whose catalogue is licence-restricted",
+    )
     args = parser.parse_args()
     records = []
     vision = FixtureVision()
-    for entry in _load_manifest():
+    for entry in _load_manifest(args.include_restricted):
         records.append(_evaluate(entry, vision))
     output = _markdown(records)
     if args.output:

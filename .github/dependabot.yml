@@ -17,6 +17,13 @@ updates:
         patterns: ["*"]
         dependency-type: development
         update-types: ["minor", "patch"]
+    ignore:
+      # `update-types` on a group only limits what the group collects: a single
+      # package that does not fit still gets its own pull request. The ignore
+      # list is what actually stops a major (issue #433).
+      - dependency-name: "*"
+        dependency-type: development
+        update-types: ["version-update:semver-major"]
 
   # A grouped major bump of development tooling is not a reviewable change:
   # eslint 9→10, typescript 5→7 and vitest 3→5 fail for different reasons and

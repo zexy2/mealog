@@ -138,10 +138,11 @@ them.
 `ask` is a safe routing outcome, not a claim that every deferred candidate was
 correct. The FP metric includes unsupported proposed items even when the system
 defers them; it is not a 40.5% silent-commit rate. These are fixture-replay
-results, not live-provider accuracy. The fixtures were recorded with
-`gemini-flash-lite-latest`; they do not measure the live adapter default,
-`gemini-3.6-flash`. Full cuisine slices, denominators, metric definitions, and
-error taxonomy are in [docs/evaluation.md](docs/evaluation.md).
+results, not live-provider accuracy. The fixtures were recorded with the Python
+evaluation adapter's default, `gemini-flash-lite-latest`; they do not measure
+the served Node backend default, `gemini-3.6-flash`. Full cuisine slices,
+denominators, metric definitions, and error taxonomy are in
+[docs/evaluation.md](docs/evaluation.md).
 
 **Retrieval itself is strong where the catalogue covers the food:** 38 variants,
 30/30 positive Recall@1, MRR 1.000, 0/8 absent-food false accepts. The

@@ -122,3 +122,29 @@ The 12-row manifest is two rows per cuisine, in manifest order; the 75-row run
 used every `en_US` row. A different subset is a different observation and must
 not be compared with these tables. A live run over the full 77 published rows
 is not possible: the two `ja_JP` images are licence-restricted and unreachable.
+
+## Follow-up (2026-11-02, #466)
+
+[#466](https://github.com/zexy2/mealog/issues/466) fixed the measurement defects
+found in the later pilot; it did not re-run the provider. The observation above
+stands as recorded.
+
+- The per-row budget is a real setting: explicit `max_elapsed`, then
+  `GEMINI_MAX_ELAPSED_SECONDS`, then the shipped 30 s, validated at
+  construction. The import-time default argument and the silent
+  `min(30, …)` clamp are gone.
+- A request keeps its own timeout; the budget now bounds retries and fallbacks,
+  not the first answer. A response inside its timeout is accepted even if it
+  outlasts the budget, and no retry or fallback starts after the deadline.
+- The adapter reads `modelVersion` and records `last_served_model` and
+  `last_model_version` next to the requested id, and records the effective
+  `max_elapsed`. Local budget exhaustion is `terminal_status=local_deadline`
+  with its own message and event, not "provider exhausted".
+- The README now names the Python evaluation adapter's default
+  (`gemini-flash-lite-latest`) separately from the served Node backend default
+  (`gemini-3.6-flash`).
+
+None of the tables or numbers in this document is revised. The live scorecard
+and `--summary-json` now also record the served model version and the effective
+budget, as described in
+[docs/evaluation.md](evaluation.md#live-budget-and-failure-attribution).

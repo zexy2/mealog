@@ -27,11 +27,13 @@ and which repository example demonstrates it.
 quietly inheriting a plausible neighbour's nutrition. The cost is lower
 automatic coverage and more correction work.
 
-**How it is measured.** The offline retrieval set has **145 variants**: **122
-positive** and **23 negative/confusion** rows. Positive Recall@1 and Recall@5
-are **122/122 (100.0%)**, MRR is **1.000**, and deliberately absent inputs
-produce **0/22 false accepts**. Resolution tests separately assert that unknown
-inputs cannot escape the closed set.
+**How it is measured.** The August full-set retrieval set had **145 variants**:
+**122 positive** and **23 negative/confusion** rows. Positive Recall@1 and
+Recall@5 were **122/122 (100.0%)**, MRR **1.000**, and deliberately absent
+inputs produced **0/22 false accepts**. The current published snapshot has
+**38 variants**, 30/30 positive Recall@1, MRR **1.000**, and 0/8 false accepts
+on absent rows. Resolution tests separately assert that unknown inputs cannot
+escape the closed set.
 
 **Example.** The `baked beans` negative case must not become Turkish
 `tr.kuru_fasulye`. The nearest neighbour may be shown for review, but resolution
@@ -47,10 +49,11 @@ no equivalent gate.
 **Why it is better.** A wrong complete-looking log is harder to detect than a
 question. Deferral protects the saved diary at the cost of friction.
 
-**How it is measured.** On the current recorded **n=80** V3 replay, Mealog
-commits **10/80** meals and routes **70/80** to `ask`, for **12%** grounded
-coverage after integer formatting. `ask` includes several safe-deferral causes;
-it is not synonymous with 70 catalogue misses.
+**How it is measured.** On the August full-set recorded **n=80** V3 replay,
+Mealog commits **10/80** meals and routes **70/80** to `ask`, for **12%**
+grounded coverage after integer formatting. The current published snapshot
+commits **7/77** and asks **70/77**, for **9%**. `ask` includes several
+safe-deferral causes; it is not synonymous with 70 catalogue misses.
 
 **Example.** `jp_0002` contains three foods absent from `ja_JP`; all three
 resolve to `ABSTAIN` and the meal asks instead of saving a nearest catalogue row.
@@ -82,14 +85,14 @@ coverage and eligible denominator.
 bucket makes that failure visible and prevents an overall mean from becoming a
 marketing number.
 
-**How it is measured.** The V3 replay reports worst and mean calorie MAPE of
-**12.7%**, but only over **2/2 eligible and covered rows**. Item F1 is **0.15**
-and the reported false-positive rate is **86.0%** across all 80 samples. The
-small calorie denominator is part of the result, not a footnote.
+**How it is measured.** The August full-set V3 replay reports worst and mean
+calorie MAPE of **12.7%**, but only over **2/2 eligible and covered rows**. Item
+F1 is **0.15** and the reported false-positive rate is **86.0%** across all 80
+samples. The small calorie denominator is part of the result, not a footnote.
 
 **Example.** Cuisine rows with no complete, covered calorie truth display an
-em dash rather than a fabricated zero. The current result therefore says both
-“12.7% on two rows” and “not enough evidence for broad calorie accuracy.”
+em dash rather than a fabricated zero. The result therefore says both “12.7% on
+two rows” and “not enough evidence for broad calorie accuracy.”
 
 ## 5. Auditable identity, alternatives, confidence and mass
 
@@ -194,10 +197,15 @@ required before a correction could become release evidence.
 ## Evidence boundary
 
 Repository measurements are reproducible with `make eval`,
-`python eval/retrieval_eval.py` and the committed tests. The current replay is
-**10/80 commit**, **70/80 ask**, item F1 **0.15**, FP rate **86.0%**, and
-**12.7% MAPE over 2/2 eligible and covered rows**. Retrieval is Recall@1/5
-**100.0%**, MRR **1.000**, with **0/22** false accepts on absent rows.
+`python eval/retrieval_eval.py` and the committed tests. The August full-set
+replay was **10/80 commit**, **70/80 ask**, item F1 **0.15**, FP rate **86.0%**,
+and **12.7% MAPE over 2/2 eligible and covered rows**; retrieval was Recall@1/5
+**100.0%**, MRR **1.000**, with **0/22** false accepts on absent rows. The
+current published snapshot is **7/77 commit**, **70/77 ask**, **9% coverage**,
+item F1 **0.38**, FP rate **40.5%**, with **38 variants**, 30/30 positive
+Recall@1, and 0/8 false accepts; README's
+[evidence snapshot](../../README.md#evidence-snapshot) and `make claims` own
+those numbers.
 
 No competitor screenshot pair or user photo is committed. Local presentation
 media is not clean-clone, CI or benchmark evidence, so this document contains no

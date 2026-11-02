@@ -145,9 +145,10 @@ jobs:
       - name: bundle Expo mobile app
         run: npx expo export
 
-  # Rulesets would prevent this, but GitHub does not enforce them on private
-  # repositories outside a Team plan. Detection is the available substitute:
-  # a direct push still lands, but main goes red and names the commit.
+  # main is protected by an active ruleset requiring a pull request and the
+  # `check` status, with an empty bypass list. This job is defence in depth:
+  # if the ruleset is ever removed, a direct push still lands, but main goes
+  # red and names the commit.
   main-arrived-via-pull-request:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}

@@ -73,9 +73,13 @@ labelled unusable blur set are collected; the metric remains unshipped.
 
 ## Reproduction and scope
 
-After `cd server && npm run build`, the six rows were measured with
-`measurePngCaptureQuality` against the files named above. The image bytes are
-not copied into the repository. Focused tests cover normalization, the
-textureless white-frame rule, deterministic re-encoding, dimensions, and
-malformed PNG rejection. No evaluator, golden fixture, baseline, pipeline,
-runner, gate, response contract, or scorecard was changed.
+**The six rows above are not reproducible from this repository.** They were
+measured with `measurePngCaptureQuality` against coordinator-provided files in
+`/tmp/mealog-adversarial/`; the image bytes were never committed and that
+directory is gone. Committing the six images with a recorded licence, or
+recording their SHA-256 and size and re-supplying them, is what would make the
+table reproducible and let a reader rerun `measurePngCaptureQuality` against
+them. Focused tests cover normalization, the textureless white-frame rule,
+deterministic re-encoding, dimensions, and malformed PNG rejection. No
+evaluator, golden fixture, baseline, pipeline, runner, gate, response contract,
+or scorecard was changed.

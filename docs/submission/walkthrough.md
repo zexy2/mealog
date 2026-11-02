@@ -218,19 +218,24 @@ the scorecard from the recording commit and keep its SHA-256 visible.
 
 **Say:**
 
-> The current scorecard covers **12%: 10/80** samples. Item F1 is **0.15**, FP
-> is **86.0%**, and calorie MAPE is **12.7%**. I will state its exact denominator
-> again in the limitations segment; this is not broad live accuracy.
+> The August full-set scorecard — with the licence-restricted Turkish pack
+> installed — covered **12%: 10/80** samples. Item F1 was **0.15**, FP was
+> **86.0%**, and calorie MAPE was **12.7%**. That is the historical submission
+> run. The current published snapshot over the 77 redistributable rows is
+> **9%: 7/77**, Item F1 **0.38**, FP **40.5%**, and `make claims` checks it.
+> I will state its exact denominator again in the limitations segment; neither
+> is broad live accuracy.
 >
 > The ablation makes the trade-off visible: V0 ungated is **100% coverage at
-> 100% MAPE**; V3 is **12% coverage at 12.7% MAPE**. V3 answers less often
-> because it refuses unsupported identities.
+> 100% MAPE**; V3 answers **9% at 12.7% MAPE** in the current snapshot (12% at
+> 12.7% in the August run). V3 answers less often because it refuses
+> unsupported identities.
 >
-> Retrieval is a separate guard: across **145 variants**, Recall@1 is **100%**
-> and MRR is **1.000**; across **22 negative probes**, there are zero wrong
-> accepts. On **10 out-of-catalogue images**, there are **10 correct
-> abstentions** and zero false accepts. The regression gate compares buckets,
-> not just an aggregate.
+> Retrieval is a separate guard: the current snapshot has **38 variants**,
+> 30/30 positive Recall@1, MRR **1.000**, and 0/8 false accepts on absent rows.
+> The August full-set run had **145 variants**, **22 negative probes** with zero
+> wrong accepts, and **10 correct abstentions** on 10 out-of-catalogue images.
+> The regression gate compares buckets, not just an aggregate.
 
 **On-screen proof:** scorecard SHA, the V0/V3 rows, the retrieval rows, the
 out-of-catalogue result summary, and the passing local regression check. Hosted
@@ -263,11 +268,12 @@ CI result. Never show credentials, a user photo, or a user identifier.
 
 **Say:**
 
-> The scorecard has **n=80** samples, but the calorie MAPE denominator is **TWO
-> scorable rows**, not 80: **12.7% over 2 scorable rows**. The other rows do not
-> provide trustworthy calorie truth, so they are not zero-calorie errors.
-> Coverage is **12%: 10/80**: selective answers and a very small calorie
-> denominator.
+> The August full-set scorecard has **n=80** samples, but the calorie MAPE
+> denominator is **TWO scorable rows**, not 80: **12.7% over 2 scorable rows**.
+> The other rows do not provide trustworthy calorie truth, so they are not
+> zero-calorie errors. Coverage there is **12%: 10/80**; the current published
+> snapshot is **9%: 7/77** over the redistributable rows. Either way this is
+> selective answers over a very small calorie denominator.
 >
 > **Known limitation & quantity disambiguation:** On ambiguous multi-item plates
 > like two simits, visual perception may return an unresolved item count; the

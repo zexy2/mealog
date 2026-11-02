@@ -74,12 +74,11 @@ labels are ground truth; changing them changes every historical number.
 
 ## 4. Branch and PR discipline
 
-- **Never commit directly to `main`.** Every change is a PR.
-  This is *detected, not prevented*. GitHub does not enforce rulesets on private
-  repositories outside a Team plan, so a direct push still lands — but the
-  `main-arrived-via-pull-request` job turns `main` red and names the commit and
-  its author. Replace detection with a ruleset the moment this repository becomes
-  public or moves into an organisation.
+- **Never commit directly to `main`.** Every change is a PR. `main` is protected
+  by an active GitHub ruleset (id 21100839) that requires a pull request and the
+  `check` status; its bypass list is empty, so there is no bypass. The
+  `main-arrived-via-pull-request` job is defence in depth: if the ruleset is ever
+  removed, a direct push turns `main` red and names the commit and its author.
 - One issue → one branch → one PR. Keep PRs small enough to review in 10 minutes.
 - Reference the claim issue in the PR body as `**Closes:** #<issue>`.
 - Fill in the PR template completely. A PR that does not state its **eval impact**
@@ -91,9 +90,9 @@ labels are ground truth; changing them changes every historical number.
 - **Generated files conflict cheaply.** `STATUS.md` is produced by
   `scripts/status.py`. If it conflicts, do not hand-merge it: take either side,
   re-run `make status`, and commit the result.
-- **`STATUS.md` and `log/` are exempt from claim scope** (`ALWAYS_ALLOWED` in
-  `check_claim_scope.py`). Every pull request touches them, so no claim needs to
-  list them. Adding a test changes the generated status file: run `make status`
+- **The whole of `docs/submission/` is exempt from claim scope** (`ALWAYS_ALLOWED`
+  in `check_claim_scope.py`), which includes `STATUS.md` and `log/`; no claim
+  needs to list them. Adding a test changes the generated status file: run `make status`
   and commit the result before pushing, or CI fails on a stale `STATUS.md` that
   has nothing to do with your change.
 
@@ -176,7 +175,9 @@ yourself so another agent can pick it up. Silent abandonment is the worst outcom
 
 ## 9. Project invariants — do not break these
 
-These come from `docs/decisions.md` and are enforced by `scripts/check_invariants.py`:
+These come from `docs/decisions.md`. `scripts/check_invariants.py` enforces them
+over the Python reference pipeline (`server/src/mealog/**/*.py`); it does not scan
+the served TypeScript backend (`server/src/pipeline/`).
 
 | Invariant | Why |
 |---|---|
@@ -185,6 +186,12 @@ These come from `docs/decisions.md` and are enforced by `scripts/check_invariant
 | Every locale pack declares a `license` | packs have different legal terms (TURKOMP is restricted) |
 | Every golden sample has a matching fixture | `make eval` must run offline for anyone |
 | Resolution returns a catalogue `food_id` or `ABSTAIN`, never free text | closed-set is what makes hallucination impossible |
+
+The served TypeScript backend has behavioural tests for the same rules
+(`server/test/pipeline.nutrition.test.ts`, `server/test/pipeline.resolve.test.ts`),
+but no structural invariant checker: nothing equivalent to `check_invariants.py`
+scans `server/src/pipeline/` for a second nutrient producer or a non-closed-set
+resolver.
 
 ## 10. Bringing a new agent in
 

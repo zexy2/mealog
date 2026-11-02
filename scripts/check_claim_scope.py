@@ -88,10 +88,20 @@ def declared_scope(body: str) -> list[str]:
     # Backticked paths only, but tolerate the common `a.md`, `b.md` grouping and
     # a path wrapped in a directory prefix, so one declaration cannot be read
     # two ways.
+    #
+    # "Looks like a path" is decided by shape, not by a list of known suffixes:
+    # an allow-list silently dropped extension-less files such as `.gitignore`,
+    # and the gate then reported a file its author had declared.
     return [p.strip().rstrip("/") for p in PATHS.findall(block.group(1))
-            if "/" in p or p.endswith((".py", ".md", ".toml", ".yaml", ".yml",
-                                       ".jsonl", ".cfg", ".ts", ".json"))
-            or p in ROOT_FILES]
+            if _looks_like_path(p.strip())]
+
+
+def _looks_like_path(candidate: str) -> bool:
+    if "/" in candidate or candidate in ROOT_FILES:
+        return True
+    # A bare filename: dots are fine (`.gitignore`, `a.yml`), whitespace and
+    # prose punctuation are not.
+    return bool(re.fullmatch(r"[\w.\-+@]+", candidate))
 
 
 def main() -> int:

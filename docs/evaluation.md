@@ -376,7 +376,11 @@ variant is the default and is what an offline replay implies. The flag is
 ignored offline because fixtures replay by `sample_id`, so passing it does not
 change the offline scorecard. The live scorecard header and `--summary-json`
 record the variant, so a live result names its prompt rather than the module
-constant.
+constant. The flag was used on 2026-11-02 to compare `p4` and `p5` over two
+live runs each on the 75 live-eligible rows; the result is
+[live-prompt-comparison-2026-11-02.md](live-prompt-comparison-2026-11-02.md).
+Its headline is that Item F1 moved from 0.36–0.37 to 0.41 while coverage did
+not move.
 
 ### Live budget and failure attribution
 
@@ -438,8 +442,8 @@ not reported by the provider`. `provider_model` stays the requested alias and
 `effective_budget_seconds` carries the resolved budget; offline output gains no
 header lines or keys.
 
-The one attempted use, which produced no comparison because the provider timed
-out, is recorded in
+The first attempted use, which produced no comparison because the provider
+timed out, is recorded in
 [live-prompt-pilot-2026-11-02.md](live-prompt-pilot-2026-11-02.md).
 
 A live scorecard differs from the committed one in three ways, and they are

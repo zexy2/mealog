@@ -8,8 +8,8 @@ and catalogue-backed nutrition. When evidence is insufficient, it asks or
 abstains instead of silently saving the nearest guess.
 
 **Start here:** [Run in 30 seconds](#run-in-30-seconds) ·
-[Architecture](#architecture) · [Decisions](docs/decisions.md) ·
-[Evaluation](docs/evaluation.md)
+[Project tour](docs/tour.md) · [Architecture](#architecture) ·
+[Decisions](docs/decisions.md) · [Evaluation](docs/evaluation.md)
 
 <p align="center">
   <img src="docs/assets/readme-live-review.gif" width="360" alt="Mealog live Gemini flow from photo selection through Review and Day save">
@@ -93,13 +93,14 @@ reference tooling, not the delivered backend.
 ## Design decisions
 
 These are the choices that shaped the system, each with the trade-off it cost.
-The full record is [decision log D1–D20](docs/decisions.md).
+The full record is [decision log D1–D21](docs/decisions.md).
 
 | Decision | What it buys | What it costs |
 | --- | --- | --- |
 | **The model never produces a nutrient number** ([D1](docs/decisions.md#d1)) | Unknown identity cannot silently receive authoritative nutrition | Low coverage; more questions to the user |
 | **A locale is a data pack, not code** ([D2](docs/decisions.md#d2)) | New markets need no pipeline branches; licence stays explicit | Pack curation and legal review per market |
 | **Worst-cuisine metric, read with coverage** ([D3](docs/decisions.md#d3)) | Distribution shift stays visible instead of hidden by an average | Small buckets are noisy and less flattering |
+| **Restricted data is installed, not committed** ([D21](docs/decisions.md#d21)) | Licence terms stop contradicting the repository's own grant | A clean clone needs one install step for Turkish |
 | **Expo mobile client, not a web app** ([D9](docs/decisions.md#d9)) | Real camera and native review flow | Device compatibility needs separate runtime verification |
 | **NestJS edge plus Python evaluation harness** ([D12](docs/decisions.md#d12)) | Typed HTTP surface plus reproducible offline measurement | Two runtimes and parity ceremony |
 

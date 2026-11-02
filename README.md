@@ -236,8 +236,10 @@ pack whose terms do not fit your use case.
   from the committed fixtures (`p3`), the output moves between runs, and one
   row carries the calorie denominator. `make eval-live` never rewrites the
   committed fixtures (D24). `jp_0001` / `jp_0002` are UEC images (non-commercial
-  research only, source HTTP 403) and must not be sent to a third-party API,
-  capping live coverage at 75/77.
+  research only) and the live harness refuses them from the manifest licence,
+  not from the archive's HTTP 403: `select_rows` drops them and `input_for_row`
+  raises `LiveIneligibleRow` before reading any bytes. That caps live coverage
+  at 75/77 by rule.
 - Only 2 of the 77 published rows are complete and covered for calorie
   MAPE (2/80 including the licence-restricted pack).
 - The mobile client resolves a typed food name through the server

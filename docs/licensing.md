@@ -80,11 +80,31 @@ integration, not an accuracy benchmark, and are not a data set for training.
 licence and SHA-256 per row; `scripts/fetch_golden_images.py` writes the bytes to
 the ignored `data/golden-images/`. A live measurement (`make eval-live`) uploads
 those images to the configured vision provider, so the row licences have to
-permit third-party processing. Two rows do not: `jp_0001` and `jp_0002` come from
-UEC-Food 256, whose official terms allow non-commercial research only. They are
-excluded from live runs even when the archive is reachable, which caps live
-coverage at 75 of the 77 published rows. Their absence is reported, not
+permit third-party processing. The harness derives live eligibility from the
+manifest's `image_license` against a closed allowlist: CC BY 4.0, CC BY-SA, and
+Apache-2.0. The match ignores the trailing source note, so a row is allowed by
+licence *kind*; anything unrecognised, empty, or missing fails closed. Two rows
+in the published scope do not qualify: `jp_0001` and `jp_0002` come from
+UEC-Food 256, whose official terms allow non-commercial research only. They
+also carry `"live_eligible": false`, which can subtract but never add. With
+the restricted Turkish pack installed, a third row, `tr_0003` (the free-text
+lane), is refused because no licence is recorded for it.
+
+There are two independent refusals. `select_rows` drops live-ineligible rows
+when it builds a live run, so `--limit` applies to eligible rows and the
+scorecard header plus `--summary-json` report `rows_excluded_live` with the
+sample ids and reasons. `input_for_row` then refuses the same row even when a
+caller bypasses selection: it raises `LiveIneligibleRow`, naming the sample and
+the licence, before it reads image bytes or builds a provider input. Live
+coverage is therefore capped at 75 of the 77 published rows by a rule the code
+enforces, not by the archive returning HTTP 403; the 403 is a second,
+independent reason those bytes are absent. Their absence is reported, not
 substituted with a re-encoded or re-sourced image.
+
+The honest caveat is that the check trusts the curated `image_license` string
+in the manifest. It does not fetch or verify the upstream terms, so adding a
+source still means reading its licence and adding it to the allowlist
+deliberately.
 
 ## The Turkish catalogue is installed, not committed
 

@@ -39,7 +39,7 @@ flowchart TD
     end
 
     subgraph Data[Data and local evidence]
-        Packs[Locale packs: 103 canonical rows]
+        Packs[Locale packs: 46 committed + 57 licence-gated rows]
         Telemetry[Process-local correction events]
     end
 

@@ -388,7 +388,7 @@ the measured numbers do not move.
 
 **Constraint.** Auto-accepting a meal with a 200+ kcal uncertainty interval violates the product's trust boundary. The UI must ask the user for confirmation when the visual evidence is insufficient to count or size the food.
 
-**Cost.** The measured `AUTO_ACCEPT` rate on the offline golden set drops (to 0 on the 80 samples), increasing user friction by requiring a tap in the Review screen. This is an explicit trade-off: safety and explicit confirmation over frictionless but potentially wrong logging.
+**Cost.** The measured `AUTO_ACCEPT` rate on the offline golden set drops (to 0 on the full 80-sample set; 77 in the published scope, D23), increasing user friction by requiring a tap in the Review screen. This is an explicit trade-off: safety and explicit confirmation over frictionless but potentially wrong logging.
 
 ---
 

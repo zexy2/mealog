@@ -254,7 +254,7 @@ def render() -> str:
     L += ["", "## Measured", "",
           "| | |", "|---|---:|",
           f"| Locale packs | {len(c['packs'])} ({', '.join(c['packs'])}) |",
-          f"| Canonical foods | {c['foods']} |",
+          f"| Canonical foods (committed) | {c['foods']} |",
           "| Packs installed separately | "
           + (", ".join(c["installable"]) + " (licence-restricted; `make pack`)" if c["installable"]
              else "none — every defined pack ships") + " |",

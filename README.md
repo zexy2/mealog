@@ -213,7 +213,8 @@ pack whose terms do not fit your use case.
   E2E claim.
 - Live-provider accuracy is unmeasured; the scorecard replays fixtures recorded
   with a different Gemini model from the live adapter default.
-- Only 2/80 rows are complete and covered for calorie MAPE.
+- Only 2 of the 77 published rows are complete and covered for calorie
+  MAPE (2/80 including the licence-restricted pack).
 - The mobile client resolves a typed food name through the server
   (`POST /v1/foods/resolve`) and holds no nutrition table of its own (D22). Its
   demo mode still answers from a small fixed demo catalogue, labelled `DEMO`.

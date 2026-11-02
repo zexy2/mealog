@@ -73,7 +73,7 @@ def summaries() -> tuple[dict, dict]:
 def readme_for(measured: dict[str, str]) -> str:
     return (
         "# Mealog\n\n## Evidence snapshot\n\n"
-        f"- **{measured['commit.commit']}/{measured['commit.rows']} commit, "
+        f"- **{measured['commit.commit']}/{measured['commit.rows']} proposed for review, "
         f"{measured['commit.ask']}/{measured['commit.rows']} ask:** "
         f"{measured['coverage.coverage']}% grounded coverage in the V3 configuration.\n"
         f"- **Item F1 {measured['identity.f1']}; "

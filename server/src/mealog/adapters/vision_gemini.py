@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import os
 import random
 import re
@@ -33,6 +34,7 @@ PROMPT_VERSION = "p4"
 DEFAULT_MODEL = "gemini-flash-lite-latest"
 SECONDARY_MODEL = "gemini-2.5-flash-lite"
 MODEL_ENV_VAR = "GEMINI_MODEL"
+MAX_ELAPSED_ENV_VAR = "GEMINI_MAX_ELAPSED_SECONDS"
 REQUEST_INTERVAL_SECONDS = 4.0
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 MAX_ERROR_BODY = 500
@@ -223,6 +225,42 @@ def configured_model_id() -> str:
     return os.getenv(MODEL_ENV_VAR, DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
+def _validated_seconds(value: object, source: str) -> float:
+    """Return ``value`` as a positive finite number of seconds, or fail.
+
+    The budget is a measurement input, so a typo must stop the run rather than
+    silently become a smaller or larger ceiling. Clamping was the original bug:
+    a caller asking for 180 s got 30 s and no error.
+    """
+    try:
+        seconds = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        seconds = math.nan
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise ValueError(
+            f"{source} must be a finite number of seconds greater than 0; got {value!r}"
+        )
+    return seconds
+
+
+def resolve_max_elapsed(explicit: float | None = None) -> float:
+    """Resolve the per-row wall-clock budget in documented precedence order.
+
+    An explicit argument wins over the environment, which wins over the shipped
+    constant. Resolution happens at construction time, so a caller (or an
+    environment variable set for the process) can raise the budget without
+    editing this module. There is no hidden upper clamp: the configured value is
+    the effective value, and ``_validated_seconds`` rejects nonsense instead of
+    quietly reducing it.
+    """
+    if explicit is not None:
+        return _validated_seconds(explicit, "max_elapsed")
+    raw = os.getenv(MAX_ELAPSED_ENV_VAR)
+    if raw is None or not raw.strip():
+        return MAX_ELAPSED_SECONDS
+    return _validated_seconds(raw.strip(), MAX_ELAPSED_ENV_VAR)
+
+
 class _ProviderFailure(RuntimeError):
     def __init__(
         self,
@@ -233,6 +271,7 @@ class _ProviderFailure(RuntimeError):
         fallback_allowed: bool = True,
         retry_after: float | None = None,
         attempts: int = 0,
+        local_deadline: bool = False,
     ):
         super().__init__(message)
         self.status = status
@@ -240,6 +279,7 @@ class _ProviderFailure(RuntimeError):
         self.fallback_allowed = fallback_allowed
         self.retry_after = retry_after
         self.attempts = attempts
+        self.local_deadline = local_deadline
 
 
 def _retry_after_seconds(headers: Any) -> float | None:
@@ -352,7 +392,7 @@ class GeminiVision:
         opener: Callable[..., Any] = urlopen,
         secondary_model: str | None = SECONDARY_MODEL,
         max_attempts: int = MAX_ATTEMPTS,
-        max_elapsed: float = MAX_ELAPSED_SECONDS,
+        max_elapsed: float | None = None,
         sleep_fn: Callable[[float], None] = time.sleep,
         clock_fn: Callable[[], float] = time.monotonic,
         jitter_fn: Callable[[float], float] | None = None,
@@ -371,7 +411,10 @@ class GeminiVision:
         self._opener = opener
         self.secondary_model = secondary_model
         self.max_attempts = min(MAX_ATTEMPTS, max(1, max_attempts))
-        self.max_elapsed = min(MAX_ELAPSED_SECONDS, max(0.1, max_elapsed))
+        # No import-time default and no min() clamp: the 2026-11-02 run set
+        # MAX_ELAPSED_SECONDS = 180 and silently ran with 30 because the old
+        # default argument had already bound and the constructor re-clamped.
+        self.max_elapsed = resolve_max_elapsed(max_elapsed)
         self._sleep = sleep_fn
         self._clock = clock_fn
         self._jitter = jitter_fn or (lambda cap: random.uniform(0.0, cap))
@@ -383,6 +426,15 @@ class GeminiVision:
         self.degraded = False
         self.rung = RUNG_CONFIGURED_MODEL
         self.last_model = self.model_id
+        # ``last_model`` stays the requested id of the rung that answered,
+        # which is what fixture_payload has always stamped. The provider's
+        # ``modelVersion`` is separate so an alias like
+        # ``gemini-flash-lite-latest`` cannot stand in for what was served.
+        self.last_model_version: str | None = None
+        self.last_served_model = self.model_id
+        #: Ordered, de-duplicated versions seen across every successful call.
+        #: The run is not a single-model measurement if this holds more than one.
+        self.observed_model_versions: list[str] = []
         self.last_attempts = 0
 
     def _wait_for_request_slot(self) -> None:
@@ -419,7 +471,6 @@ class GeminiVision:
             },
             method="POST",
         )
-        self._wait_for_request_slot()
         self.request_count += 1
         try:
             with self._opener(request, timeout=timeout or self.timeout) as response:
@@ -455,6 +506,19 @@ class GeminiVision:
         jittered = min(BACKOFF_CAP_SECONDS, exponential + max(0.0, self._jitter(exponential)))
         return max(retry_after or 0.0, jittered)
 
+    def _local_deadline_failure(
+        self,
+        attempts: int,
+        last_failure: _ProviderFailure | None = None,
+    ) -> _ProviderFailure:
+        """Name the local ceiling, keeping any provider detail that preceded it."""
+        detail = f"; last provider failure: {last_failure}" if last_failure else ""
+        return _ProviderFailure(
+            f"local deadline of {self.max_elapsed:g}s reached after {attempts} attempt(s){detail}",
+            attempts=attempts,
+            local_deadline=True,
+        )
+
     def _request_with_retry(
         self,
         parts: list[dict[str, Any]],
@@ -464,23 +528,34 @@ class GeminiVision:
         attempts = 0
         last_failure: _ProviderFailure | None = None
         while attempts < self.max_attempts:
-            remaining = deadline - self._clock()
-            if remaining <= 0:
-                break
+            # Pacing is part of starting a request, so account for it before
+            # deciding whether this attempt fits. That keeps the bound exact:
+            # nothing starts after the deadline, and the only overrun is the
+            # request timeout of an attempt that already started in time.
+            self._wait_for_request_slot()
+            if deadline - self._clock() <= 0:
+                # An attempt that starts before the deadline may finish after
+                # it; an attempt that has not started by then never starts.
+                # Reaching this guard means our own clock, not the provider,
+                # stopped the ladder.
+                raise self._local_deadline_failure(attempts, last_failure)
             attempts += 1
             try:
-                return self._request(parts, model=model, timeout=min(self.timeout, remaining)), attempts
+                # A request gets its own timeout. The ladder budget governs
+                # retries and fallbacks; it must not truncate the first answer
+                # before the model has had the time the caller configured.
+                return self._request(parts, model=model, timeout=self.timeout), attempts
             except _ProviderFailure as exc:
                 last_failure = exc
                 if not exc.retryable or attempts >= self.max_attempts:
                     break
                 delay = self._retry_delay(attempts, exc.retry_after)
                 if delay >= deadline - self._clock():
-                    break
+                    raise self._local_deadline_failure(attempts, last_failure) from exc
                 self._sleep(delay)
 
         if last_failure is None:
-            last_failure = _ProviderFailure("Gemini retry wall-clock ceiling reached")
+            raise self._local_deadline_failure(attempts)
         last_failure.attempts = attempts
         raise last_failure
 
@@ -506,6 +581,8 @@ class GeminiVision:
         self.degraded = False
         self.rung = RUNG_CONFIGURED_MODEL
         self.last_model = self.model_id
+        self.last_model_version = None
+        self.last_served_model = self.model_id
         self.last_attempts = 0
         started = self._clock()
         deadline = started + self.max_elapsed
@@ -520,8 +597,10 @@ class GeminiVision:
 
         failures: list[tuple[str, str, _ProviderFailure]] = []
         total_attempts = 0
+        deadline_hit = False
         for rung, model, include_image in rung_chain:
             if self._clock() >= deadline:
+                deadline_hit = True
                 break
             parts = self._parts(input_ref, include_image=include_image)
             attempts = 0
@@ -534,6 +613,9 @@ class GeminiVision:
             except _ProviderFailure as exc:
                 total_attempts += exc.attempts
                 failures.append((rung, model, exc))
+                if exc.local_deadline:
+                    deadline_hit = True
+                    break
                 if not exc.fallback_allowed:
                     break
                 continue
@@ -546,6 +628,16 @@ class GeminiVision:
             total_attempts += attempts
             self.last_items = items
             self.last_model = model
+            version = response.get("modelVersion") if isinstance(response, dict) else None
+            self.last_model_version = (
+                version.strip() if isinstance(version, str) and version.strip() else None
+            )
+            self.last_served_model = self.last_model_version or model
+            if (
+                self.last_model_version
+                and self.last_model_version not in self.observed_model_versions
+            ):
+                self.observed_model_versions.append(self.last_model_version)
             self.last_attempts = total_attempts
             self.degraded = rung != RUNG_CONFIGURED_MODEL
             self.rung = rung
@@ -554,26 +646,52 @@ class GeminiVision:
                     "vision_fallback",
                     rung=rung,
                     model=model,
+                    served_model=self.last_served_model,
+                    model_version=self.last_model_version,
                     attempts=total_attempts,
+                    max_elapsed=self.max_elapsed,
                 )
             return items
 
-        last_rung, last_model, last_failure = failures[-1] if failures else (
-            RUNG_FAILURE,
-            self.model,
-            _ProviderFailure("Gemini retry wall-clock ceiling reached"),
-        )
+        if failures:
+            last_rung, last_model, last_failure = failures[-1]
+        else:
+            last_rung, last_model = RUNG_CONFIGURED_MODEL, self.model
+            last_failure = self._local_deadline_failure(0)
+        if deadline_hit and not last_failure.local_deadline:
+            # A provider failure came first, but the fallback rung never got a
+            # chance because our own ceiling expired. Keep the provider detail
+            # in the message while naming the actual stop condition.
+            last_failure = self._local_deadline_failure(total_attempts, last_failure)
         self.degraded = True
         self.rung = RUNG_FAILURE
         self.last_model = last_model
+        self.last_model_version = None
+        self.last_served_model = last_model
         self.last_attempts = total_attempts
         elapsed_ms = round((self._clock() - started) * 1000, 2)
+        if last_failure.local_deadline:
+            obs.event(
+                "vision_local_deadline",
+                attempts=total_attempts,
+                terminal_status="local_deadline",
+                elapsed_ms=elapsed_ms,
+                rung=last_rung,
+                max_elapsed=self.max_elapsed,
+            )
+            raise RuntimeError(
+                f"Gemini local deadline of {self.max_elapsed:g}s reached after "
+                f"{total_attempts} attempt(s); terminal_status=local_deadline; "
+                f"rung={last_rung}: {last_failure}"
+            ) from last_failure
         obs.event(
             "vision_provider_exhausted",
             attempts=total_attempts,
             terminal_status=last_failure.status,
             elapsed_ms=elapsed_ms,
             rung=last_rung,
+            max_elapsed=self.max_elapsed,
+            requested_model=self.model_id,
         )
         status = last_failure.status if last_failure.status is not None else "unknown"
         raise RuntimeError(

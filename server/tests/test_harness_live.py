@@ -69,18 +69,38 @@ class RecordingVision:
 
     fail_ids: ClassVar[set[str]] = set()
     instances: ClassVar[list[RecordingVision]] = []
+    model_version: ClassVar[str | None] = "gemini-3.5-flash-lite"
+    version_sequence: ClassVar[list[str | None] | None] = None
+    max_elapsed: ClassVar[float] = 30.0
+    timeout: ClassVar[float] = 90.0
 
     def __init__(self, api_key: str, prompt_variant: str = "p4"):
         self.api_key = api_key
         self.prompt_variant = prompt_variant
         self.seen = []
         self.name = "gemini"
+        self.last_served_model = type(self).model_version
+        self.last_model_version = type(self).model_version
+        self.observed_model_versions: list[str] = []
+        self._perceive_index = 0
+        self.max_elapsed = type(self).max_elapsed
+        self.timeout = type(self).timeout
         type(self).instances.append(self)
 
     def perceive(self, input_ref):
         self.seen.append(input_ref)
         if input_ref.sample_id in self.fail_ids:
             raise RuntimeError(f"provider failed for {input_ref.sample_id}")
+        sequence = type(self).version_sequence
+        if sequence:
+            version = sequence[min(self._perceive_index, len(sequence) - 1)]
+        else:
+            version = type(self).model_version
+        self._perceive_index += 1
+        self.last_model_version = version
+        self.last_served_model = version or "gemini-flash-lite-latest"
+        if version and version not in self.observed_model_versions:
+            self.observed_model_versions.append(version)
         return [PerceivedItem(surface_form="scrambled eggs", confidence=0.9)]
 
 
@@ -88,6 +108,10 @@ class RecordingVision:
 def reset_failures():
     RecordingVision.fail_ids = set()
     RecordingVision.instances = []
+    RecordingVision.model_version = "gemini-3.5-flash-lite"
+    RecordingVision.version_sequence = None
+    RecordingVision.max_elapsed = 30.0
+    RecordingVision.timeout = 90.0
 
 
 def test_input_for_row_uses_image_bytes(tmp_path):
@@ -242,3 +266,195 @@ def test_live_scorecard_never_calls_itself_offline_evidence():
     assert "gemini-flash-lite-latest" in live
     assert "not comparable to the offline snapshot" in live
     assert "offline evidence" in offline
+
+
+def test_live_scorecard_and_summary_name_served_model_and_budget(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    images = tmp_path / "images"
+    write_image(images)
+    manifest = write_manifest(tmp_path, [golden_row("row_1")])
+    out = tmp_path / "scorecard.md"
+    summary_path = tmp_path / "summary.json"
+    monkeypatch.setattr(harness, "GeminiVision", RecordingVision)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "harness.py",
+            "--configs",
+            "V3",
+            "--live",
+            "--manifest",
+            str(manifest),
+            "--images-dir",
+            str(images),
+            "--out",
+            str(out),
+            "--summary-json",
+            str(summary_path),
+        ],
+    )
+
+    assert harness.main() == 0
+    capsys.readouterr()
+
+    report = out.read_text(encoding="utf-8")
+    assert (
+        "Provider model: `gemini-flash-lite-latest` (requested); "
+        "served `gemini-3.5-flash-lite`."
+    ) in report
+    assert (
+        "Wall-clock budget: 30s per row; retries and fallbacks stop at the "
+        "budget, a single request may use the 90s request timeout."
+    ) in report
+
+    written = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert written["provider_model"] == "gemini-flash-lite-latest"
+    assert written["provider_model_version"] == "gemini-3.5-flash-lite"
+    assert written["provider_model_versions"] == ["gemini-3.5-flash-lite"]
+    assert written["effective_budget_seconds"] == 30.0
+
+
+def test_live_header_admits_missing_served_version(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    RecordingVision.model_version = None
+    images = tmp_path / "images"
+    write_image(images)
+    manifest = write_manifest(tmp_path, [golden_row("row_1")])
+    out = tmp_path / "scorecard.md"
+    summary_path = tmp_path / "summary.json"
+    monkeypatch.setattr(harness, "GeminiVision", RecordingVision)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "harness.py",
+            "--configs",
+            "V3",
+            "--live",
+            "--manifest",
+            str(manifest),
+            "--images-dir",
+            str(images),
+            "--out",
+            str(out),
+            "--summary-json",
+            str(summary_path),
+        ],
+    )
+
+    assert harness.main() == 0
+    capsys.readouterr()
+
+    report = out.read_text(encoding="utf-8")
+    assert "served version not reported by the provider" in report
+    assert "served `gemini-flash-lite-latest`" not in report
+    written = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert written["provider_model_version"] is None
+    assert written["provider_model_versions"] == []
+
+
+def test_live_header_names_every_version_when_the_alias_moves(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    RecordingVision.version_sequence = [
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash-lite",
+    ]
+    images = tmp_path / "images"
+    write_image(images)
+    manifest = write_manifest(tmp_path, [golden_row("row_1"), golden_row("row_2")])
+    out = tmp_path / "scorecard.md"
+    summary_path = tmp_path / "summary.json"
+    monkeypatch.setattr(harness, "GeminiVision", RecordingVision)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "harness.py",
+            "--configs",
+            "V3",
+            "--live",
+            "--manifest",
+            str(manifest),
+            "--images-dir",
+            str(images),
+            "--out",
+            str(out),
+            "--summary-json",
+            str(summary_path),
+        ],
+    )
+
+    assert harness.main() == 0
+    capsys.readouterr()
+
+    report = out.read_text(encoding="utf-8")
+    assert (
+        "Provider model: `gemini-flash-lite-latest` (requested); served by "
+        "multiple versions: `gemini-3.5-flash-lite`, `gemini-3.6-flash-lite`; "
+        "not a single-model measurement."
+    ) in report
+    written = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert written["provider_model_version"] is None
+    assert written["provider_model_versions"] == [
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash-lite",
+    ]
+
+
+def test_offline_output_gains_no_live_identity_or_budget(tmp_path, monkeypatch, capsys):
+    fixtures = tmp_path / "fixtures"
+    fixtures.mkdir()
+    (fixtures / "offline_1.json").write_text(
+        json.dumps(
+            {
+                "sample_id": "offline_1",
+                "provider": "gemini",
+                "model_id": "gemini-flash-lite-latest",
+                "prompt_version": "p3",
+                "_synthetic": False,
+                "items": [{"surface_form": "scrambled eggs", "confidence": 0.9}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest = write_manifest(tmp_path, [golden_row("offline_1")])
+    out = tmp_path / "scorecard.md"
+    summary_path = tmp_path / "summary.json"
+    monkeypatch.setattr(
+        harness, "make_vision", lambda provider: FixtureVision(fixtures)
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "harness.py",
+            "--configs",
+            "V3",
+            "--manifest",
+            str(manifest),
+            "--images-dir",
+            str(tmp_path / "never-read"),
+            "--out",
+            str(out),
+            "--summary-json",
+            str(summary_path),
+        ],
+    )
+
+    assert harness.main() == 0
+    capsys.readouterr()
+
+    report = out.read_text(encoding="utf-8")
+    assert "Provider model:" not in report
+    assert "Wall-clock budget:" not in report
+    assert "served version not reported" not in report
+
+    written = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert "provider_model_version" not in written
+    assert "provider_model_versions" not in written
+    assert "effective_budget_seconds" not in written

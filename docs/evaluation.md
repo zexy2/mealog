@@ -378,6 +378,66 @@ change the offline scorecard. The live scorecard header and `--summary-json`
 record the variant, so a live result names its prompt rather than the module
 constant.
 
+### Live budget and failure attribution
+
+The per-row wall-clock budget is resolved when the adapter is constructed. An
+explicit `max_elapsed` argument wins; otherwise `GEMINI_MAX_ELAPSED_SECONDS`;
+otherwise the shipped `MAX_ELAPSED_SECONDS = 30.0`. A blank environment value
+means unset, matching `GEMINI_MODEL`. The resolved value must be a finite number
+of seconds greater than zero; anything else raises `ValueError` instead of
+being clamped. There is no hidden upper ceiling: the configured value is the
+effective value, because a ceiling that silently reduces a request was the
+defect this replaced ([#466](https://github.com/zexy2/mealog/issues/466)). The
+adapter records it as `GeminiVision.max_elapsed`.
+
+The budget bounds retries and fallbacks, not the first answer. A single request
+may use the configured request timeout (`timeout`, 90 s by default) even when
+that runs past `max_elapsed`, and a response inside its own timeout is accepted.
+No retry or fallback rung starts after the deadline. The total bound is one
+request timeout past the configured budget, not an unbounded wait.
+
+Two terminal states are distinct:
+
+- `terminal_status=local_deadline`, a `Gemini local deadline of <N>s reached
+  …` message, and a `vision_local_deadline` event mean the adapter stopped
+  because its own clock allowed no further retry or fallback. The event carries
+  `attempts`, `elapsed_ms`, `rung`, and `max_elapsed`.
+- `terminal_status=<HTTP status or unknown>` with the `Gemini provider
+  exhausted …` message means the provider failed inside the configured
+  attempts. The `vision_provider_exhausted` event also carries `max_elapsed`
+  and `requested_model`.
+
+If a rung failed and the next rung never started because the budget expired,
+the terminal state is `local_deadline` and the message retains the provider
+detail (`last provider failure: …`).
+
+The harness prints `row <sample_id> failed: <error>` and records the id in
+`row_errors`; the printed error is what distinguishes "our ceiling" from
+"provider failure".
+
+The adapter exposes the model identity it observed:
+
+| Attribute | Meaning |
+|---|---|
+| `model_id` / `model` | requested model id, before any fallback |
+| `last_model` | requested id of the rung that answered |
+| `last_model_version` | provider `modelVersion`, or `None` when absent |
+| `last_served_model` | `modelVersion` when present, otherwise the requested id |
+| `max_elapsed` | effective per-row budget in seconds |
+
+`vision_fallback` events also carry `served_model`, `model_version`, and
+`max_elapsed`.
+
+The live header names the requested alias and the served model. `--summary-json`
+carries `provider_model_versions` and `provider_model_version`: one observed
+version sets and lists it; several leave `provider_model_version` `null`, list
+all of them, and mark the run not a single-model measurement, because an alias
+can resolve differently across calls and one name would then describe no single
+run; none leaves it `null` with an empty list and the header says `served version
+not reported by the provider`. `provider_model` stays the requested alias and
+`effective_budget_seconds` carries the resolved budget; offline output gains no
+header lines or keys.
+
 The one attempted use, which produced no comparison because the provider timed
 out, is recorded in
 [live-prompt-pilot-2026-11-02.md](live-prompt-pilot-2026-11-02.md).

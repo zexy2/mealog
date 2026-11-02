@@ -126,3 +126,23 @@ bounded by the edge parser (10 MiB, MIME and magic-byte checks) but the
 server-side limits NestJS passes to `multer` are library defaults. The
 application-level guard is what is tested; a deployment that exposes the edge
 publicly should also set explicit field and file-count limits at the proxy.
+
+### How an automated update is reviewed
+
+Dependabot pull requests skip the claim workflow — the update is its own
+justification — but they keep the gate. A bot pull request is merged only when
+every job is green and the change is one a person would have made:
+
+- a green patch or minor bump inside a supported major is merged as-is;
+- a green framework major (NestJS, Expo, React Native) is verified against the
+  breaking changes and the call sites are fixed in the same pull request;
+- a run that fails *because* of the update is fixed forward or closed with the
+  reason. It is never merged with an explanatory note.
+
+The first applied batch shows why the distinction matters:
+
+| Pull request | Result | Decision |
+| --- | --- | --- |
+| Actions group (checkout 4→7, setup-*, python 5→7) | every job green once the claim check is set aside | merged |
+| Server runtime (NestJS 11→12) | `npm ci` fails: `@nestjs/testing@11.2.8` cannot resolve against `@nestjs/common@12.3.2` | closed; the advisory it would have fixed is already closed by the pinned `multer` override |
+| Mobile group (12 Expo packages) | typecheck fails: `absoluteFillObject` and `ScrollView` refs no longer exist in the new React Native types | closed; needs a migration, not a version bump |

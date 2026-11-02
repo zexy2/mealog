@@ -348,10 +348,19 @@ A live run with no `--limit` over the published scope is 77 calls at the
 adapter's four-second pacing: roughly 6-9 minutes and a few cents. Nothing is
 written to `eval/fixtures/`.
 
-One such run exists: a twelve-row `en_US` pilot on 2026-11-02 committed 3 of
-12 rows, Item F1 0.10, FP rate 90.9%, and 25.4% calorie error on the single
-scored row. A first run of the same rows committed 4 of 12. The numbers, the
-selection and the reasons they are not comparable to the snapshot above are in
+Two such runs exist, on 2026-11-02 at the commit that added this path:
+
+- **Full published scope, 75 rows:** 74 scored, one provider timeout named in
+  `row_errors`, 4/74 committed (5.4%), Item F1 0.15, FP rate 85.6%, 25.4%
+  calorie error on 1 of 2 eligible rows. Six minutes and fourteen seconds.
+- **Twelve-row stratified pilot:** 3/12 committed (25%), Item F1 0.10, FP rate
+  90.9%; a rerun of the same rows committed 4/12, which is why the pilot is
+  reported as a range rather than a number.
+
+Both are worse than the offline replay on coverage, and neither is comparable
+to the snapshot above: the prompt is `p4` against `p3` fixtures, the model is
+the evaluation adapter's `gemini-flash-lite-latest`, and provider output varies
+between runs. The selection, the tables and the limits are in
 [live-observation-2026-11-02.md](live-observation-2026-11-02.md).
 
 ## Current evidence boundary

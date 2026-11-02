@@ -1,10 +1,14 @@
 # Live pilot observation — 2026-11-02
 
-A single dated live-provider run over twelve golden rows. It is published
-because it is the first time the live path produced a scorecard at all, and
-because its numbers are worse than the offline replay. It is **not** a new
-published accuracy claim: the README snapshot stays the offline, reproducible
-result (D4, D23), and D24 keeps a live measurement an observation.
+Two dated live-provider runs on the same day and the same commit: a
+twelve-row stratified pilot, then every `en_US` row in the published scope. The
+second is the first live scorecard that covers the whole published market. Both
+are published because they are worse than the offline replay and because the
+pilot moved between reruns.
+
+They are **not** a new published accuracy claim: the README snapshot stays the
+offline, reproducible result (D4, D23), and D24 keeps a live measurement an
+observation.
 
 ## What was run
 
@@ -25,7 +29,7 @@ cuisine bucket. `ja_JP` is absent because the two UEC images are both
 non-commercial-research only and currently unreachable (HTTP 403); see
 [licensing](licensing.md#evaluation-fixtures).
 
-## Result (V3)
+## Pilot result (V3, 12 rows)
 
 | Cuisine | n | Coverage | Calorie eligible | Calorie scored | Item F1 | kcal MAPE | within ±20% | FP rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -42,11 +46,54 @@ scored for calories: 25.4% error, outside the ±20% band. The false-positive
 rate is 90.9%, matching the shape of the offline result (88.2%): the gate
 abstains, but the candidates it considers are mostly wrong.
 
+## Full published scope (V3, 75 rows)
+
+Same day, same commit, same model and prompt. The manifest was every `en_US`
+row — the 75 rows that have a fetched, SHA-verified image. `ja_JP` is absent
+for the licence reason above, so this is 75 of the 77 published rows, not a
+reduced scope chosen for convenience.
+
+| | |
+|---|---|
+| Command | `python eval/harness.py --configs V3 --live --manifest /tmp/pilot-full/manifest.jsonl --out … --summary-json …` |
+| Rows requested | 75 |
+| Scored | 74; `n5k_0056` timed out and is named in `row_errors` |
+| Wall clock | 6 min 14 s (four-second pacing) |
+| Exit code | 1 — the named failure, not a silent denominator |
+
+| Cuisine | n | Coverage | Calorie eligible | Calorie scored | Item F1 | kcal MAPE | within ±20% | FP rate |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| western | 12 | 25% | 2 | 1 | 0.43 | 25.4% | 0.0% | 66.7% |
+| latin_american | 15 | 7% | 0 | 0 | 0.10 | — | — | 92.3% |
+| south_asian | 16 | 0% | 0 | 0 | 0.11 | — | — | 86.7% |
+| east_asian | 14 | 0% | 0 | 0 | 0.04 | — | — | 95.8% |
+| mediterranean | 9 | 0% | 0 | 0 | 0.00 | — | — | 100.0% |
+| other_mixed | 8 | 0% | 0 | 0 | 0.08 | — | — | 90.9% |
+| **overall** | **74** | **5%** | **2** | **1** | **0.15** | **25.4%** | **0.0%** | **85.6%** |
+
+Four of 74 rows committed (5.4%), 70 asked. Against the offline snapshot
+(9% coverage, Item F1 0.13, FP 88.2%) the live run commits **less**, with a
+marginally higher F1 and a marginally lower false-positive rate — and none of
+that comparison is sound, because the prompt differs (`p3` fixtures vs `p4`
+adapter) and the live model is not the backend default.
+
+Two rows had complete positive truth; only one was scored, so the calorie MAPE
+is again a single-row number. `pkg_0001` (tier 2) was calorie-eligible and not
+scored, which is why the tier table shows a perfect F1 for one row and no
+calorie error for it.
+
+What the full run establishes beyond the pilot: the live path scales to the
+published scope, a provider timeout is isolated and reported instead of
+shrinking the denominator silently, and the abstention-heavy shape of the
+offline result is real rather than an artefact of fixture replay.
+
 ## Why this is an observation, not a measurement of the model
 
 - **It moved between runs.** A first run of the same twelve rows on the same
-  code committed 4 rows (33% coverage); this run committed 3 (25%). The
-  identity layer is not stable at n=12, and a single run is not a sample.
+  code committed 4 rows (33% coverage); the second committed 3 (25%). The
+  identity layer is not stable at n=12, and a single run is not a sample. The
+  75-row run and the 12-row run are also different subsets and cannot be
+  compared to each other.
 - **Prompt and model both differ from the offline snapshot.** The committed
   fixtures are prompt `p3`; the adapter is `p4`. A difference here cannot be
   attributed to the model alone.
@@ -68,6 +115,7 @@ python eval/harness.py --configs V3 --live --limit 12 \
   --out eval/reports/scorecard-live.md         # measurement only; never writes fixtures
 ```
 
-The manifest subset used here is two rows per cuisine, in manifest order. A
-different subset is a different observation and must not be compared with this
-table.
+The 12-row manifest is two rows per cuisine, in manifest order; the 75-row run
+used every `en_US` row. A different subset is a different observation and must
+not be compared with these tables. A live run over the full 77 published rows
+is not possible: the two `ja_JP` images are licence-restricted and unreachable.

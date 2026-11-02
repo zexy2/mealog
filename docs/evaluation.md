@@ -413,7 +413,8 @@ unchanged here; this documentation refresh does not reset it. Current
 scorecards replay the **77** rows a clean clone can load (the Turkish manifest
 rows are outside the published scope) and expose complete-positive-truth
 eligibility separately from coverage. Seventy-two of the 77 in-scope rows are
-partial truth and two complete, positive-truth rows are calorie-eligible; five
-partial rows are covered by V3 but remain outside the calorie denominator.
+partial truth; five complete, positive-truth rows are calorie-eligible and two
+of them are covered by V3, which is the MAPE denominator. Five partial rows are
+covered as well but remain outside the calorie denominator.
 Identity-only rows carry Tier 3 portion truth and do not support calorie
 claims.

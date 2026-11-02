@@ -33,7 +33,13 @@ from mealog.locales.loader import PackUnavailableError, load  # noqa: E402
 from mealog.pipeline.runner import CONFIGS, make_vision, run  # noqa: E402
 
 sys.path.insert(0, str(REPO / "eval"))
-from golden_inputs import input_for_row, load_manifest  # noqa: E402
+from golden_inputs import (  # noqa: E402
+    LiveExclusion,
+    LiveIneligibleRow,
+    input_for_row,
+    live_ineligible_reason,
+    load_manifest,
+)
 from locale_scope import evidence_scope, exclusion_note  # noqa: E402
 from metrics import (Bucket, SampleResult, aggregate, aggregate_by_tier, error_distribution,
                      spread, worst_cuisine)  # noqa: E402
@@ -77,11 +83,33 @@ def select_rows(
     manifest_path: Path = GOLDEN,
     locales: set[str] | None = None,
     limit: int | None = None,
+    *,
+    live: bool = False,
+    exclusions: list[LiveExclusion] | None = None,
 ) -> list[dict]:
-    """Golden rows in manifest order, after scope filtering and an optional limit."""
+    """Golden rows in manifest order, after scope filtering and an optional limit.
+
+    A live run drops rows whose image licence does not permit third-party
+    processing. The drop happens before ``limit`` so ``--live --limit 10``
+    requests ten eligible rows, and ``exclusions`` receives one structured
+    record per dropped row for the scorecard and summary.
+    """
     rows = load_manifest(manifest_path)
     if locales is not None:
         rows = [row for row in rows if row["locale"] in locales]
+    if live:
+        eligible = []
+        for row in rows:
+            reason = live_ineligible_reason(row)
+            if reason is None:
+                eligible.append(row)
+            elif exclusions is not None:
+                exclusions.append(LiveExclusion(
+                    sample_id=row["sample_id"],
+                    image_license=row.get("image_license"),
+                    reason=reason,
+                ))
+        rows = eligible
     if limit is not None:
         rows = rows[:limit]
     return rows
@@ -121,7 +149,7 @@ def evaluate(
     results = []
     row_errors: list[str] = []
     skipped = set()
-    for entry in select_rows(manifest_path, locales, limit):
+    for entry in select_rows(manifest_path, locales, limit, live=live):
         try:
             truth_kcal(entry)  # the pack must be loadable before anything runs
         except PackUnavailableError:
@@ -139,6 +167,11 @@ def evaluate(
                     cfg,
                     idempotency_key=f"eval::{config_name}::{sample_id}",
                 )
+            except LiveIneligibleRow:
+                # select_rows should have removed this row. If it did not, a
+                # licence refusal is a defect in the selection, not a failed
+                # measurement, so do not let it look like a provider error.
+                raise
             except (OSError, ValueError, RuntimeError) as exc:
                 # Input/provider failure for this row only; keep measuring.
                 print(f"row {sample_id} failed: {exc}", file=sys.stderr)
@@ -201,6 +234,9 @@ def scorecard(
     mode: str = "offline",
     provider_model: str | None = None,
     prompt_version: str = PROMPT_VERSION,
+    rows_requested: int | None = None,
+    rows_scoped: int | None = None,
+    live_exclusions: list[LiveExclusion] | None = None,
 ) -> str:
     lines = ["# Scorecard", ""]
     if mode == "live":
@@ -215,6 +251,35 @@ def scorecard(
             ),
             "Headline metric is the **worst cuisine bucket**, not the mean.", "",
         ]
+        if live_exclusions is not None:
+            requested = rows_requested or 0
+            excluded_count = len(live_exclusions)
+            if rows_scoped is None:
+                total = requested + excluded_count
+                lines.append(
+                    f"Live scope: {requested} of {total} scoped manifest rows "
+                    f"requested; {excluded_count} excluded by image licence."
+                )
+            else:
+                eligible = rows_scoped - excluded_count
+                if requested == eligible:
+                    lines.append(
+                        f"Live scope: {eligible} of {rows_scoped} scoped "
+                        f"manifest rows requested; {excluded_count} excluded "
+                        "by image licence."
+                    )
+                else:
+                    lines.append(
+                        f"Live scope: {eligible} of {rows_scoped} scoped "
+                        f"manifest rows eligible; {excluded_count} excluded by "
+                        f"image licence; {requested} requested after --limit."
+                    )
+            if live_exclusions:
+                details = "; ".join(
+                    f"{row.sample_id} ({row.reason})" for row in live_exclusions
+                )
+                lines.append(f"Excluded by licence: {details}")
+            lines.append("")
     else:
         lines += [
             "Generated by `make eval` (offline, recorded fixtures).",
@@ -312,6 +377,7 @@ def summary(
     prompt_variant: str | None = None,
     rows_requested: int | None = None,
     row_errors: list[str] | None = None,
+    live_exclusions: list[LiveExclusion] | None = None,
 ) -> dict:
     """The machine-readable form of the numbers the README quotes.
 
@@ -320,9 +386,11 @@ def summary(
     trusting the person who last edited the paragraph.
 
     ``mode``/``provider_model``/``prompt_version`` describe how the run was
-    produced. ``rows_requested`` is the manifest row count after scope and
-    ``--limit``; ``row_errors`` names live rows that failed without stopping the
-    run.
+    produced. ``rows_requested`` is the manifest row count after scope, live
+    eligibility, and ``--limit``; ``row_errors`` names live rows that failed
+    without stopping the run. Live summaries also carry ``rows_excluded_live``
+    and the ids, licences, and reasons behind the rule-based cap; offline
+    summaries keep their existing shape.
     """
     out: dict = {
         "generator": "eval/harness.py",
@@ -335,6 +403,17 @@ def summary(
         "scope": {"included_locales": included, "excluded_locales": excluded},
         "configs": {},
     }
+    if mode == "live":
+        exclusions = list(live_exclusions or [])
+        out["rows_excluded_live"] = len(exclusions)
+        out["live_exclusions"] = [
+            {
+                "sample_id": row.sample_id,
+                "image_license": row.image_license,
+                "reason": row.reason,
+            }
+            for row in exclusions
+        ]
     for name, results in all_results.items():
         buckets, overall = aggregate(results)
         worst = worst_cuisine(buckets)
@@ -454,7 +533,15 @@ def main() -> int:
         manifest_locales(manifest_path), args.include_restricted
     )
     print(exclusion_note(locales, excluded))
-    selected = select_rows(manifest_path, set(locales), args.limit)
+    rows_scoped = len(select_rows(manifest_path, set(locales))) if args.live else None
+    live_exclusions: list[LiveExclusion] = []
+    selected = select_rows(
+        manifest_path,
+        set(locales),
+        args.limit,
+        live=args.live,
+        exclusions=live_exclusions,
+    )
 
     # Offline output must not change when the flag is passed: fixtures replay
     # by sample_id, so the shipping variant is what that run actually used.
@@ -496,6 +583,7 @@ def main() -> int:
                     prompt_variant=run_prompt_variant,
                     rows_requested=len(selected),
                     row_errors=failed_ids,
+                    live_exclusions=live_exclusions if args.live else None,
                 ),
                 indent=2,
             ) + "\n",
@@ -512,6 +600,9 @@ def main() -> int:
             mode=mode,
             provider_model=provider_model,
             prompt_version=run_prompt_variant,
+            rows_requested=len(selected),
+            rows_scoped=rows_scoped,
+            live_exclusions=live_exclusions if args.live else None,
         )
         if args.out:
             Path(REPO / args.out).write_text(report, encoding="utf-8")

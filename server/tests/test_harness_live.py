@@ -33,6 +33,7 @@ def golden_row(sample_id: str, *, filename: str | None = "dish.png") -> dict:
         "cuisine": "western",
         "tier": "tier_1",
         "input_type": "photo" if filename else "text",
+        "image_license": "CC BY 4.0 (test fixture)",
         "truth": {"items": [{"food_id": "us.eggs_scrambled", "grams": 100.0}]},
     }
     if filename is not None:

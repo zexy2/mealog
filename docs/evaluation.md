@@ -358,15 +358,18 @@ python eval/harness.py --configs V3 --live --limit 10 \
 make record                                 # the only writer of eval/fixtures
 ```
 
-The directory holds 77 image files for 80 manifest rows: two of the files are
-the licence-restricted `tr` rows (`tr_0001`, `tr_0002`), and three rows have no
-image bytes (`jp_0001`, `jp_0002`, and `tr_0003`), so the live path cannot send
-them.
+The directory holds 77 image files for 80 manifest rows: two are the
+licence-restricted `tr` rows (`tr_0001`, `tr_0002`), and three rows have no
+image bytes (`jp_0001`, `jp_0002`, and `tr_0003`). That is not the only reason
+those rows are absent from a live run. Eligibility is decided first, from
+`image_license` against a closed allowlist in `eval/golden_inputs.py`, so
+`jp_0001` and `jp_0002` are refused by licence even if a cached copy is placed
+in `data/golden-images/`.
 
 `--live` uses the same manifest rows as the offline run: each row's image bytes
 and media type are sent to the adapter, or its text when the row is the text
 lane. `--manifest`, `--images-dir` and `--limit` bound the run; `--limit N`
-applies after scope filtering, in manifest order.
+applies after scope filtering and live-licence exclusion, in manifest order.
 
 `--prompt-variant NAME` selects a named prompt for a live run; the shipping
 variant is the default and is what an offline replay implies. The flag is
@@ -386,7 +389,8 @@ printed rather than implied:
 - it says the run is a dated observation, not reproducible, and not comparable
   to the offline snapshot;
 - `--summary-json` adds `mode`, `provider_model`, `prompt_version`,
-  `rows_requested` and `row_errors` without changing the existing keys.
+  `rows_requested`, `row_errors`, `rows_excluded_live` and `live_exclusions`
+  without changing the existing keys or the offline summary.
 
 A failing row is reported as `row <sample_id> failed: <error>` and the run
 continues; the process exits 1 at the end and prints how many config-rows were
@@ -396,14 +400,20 @@ denominator would be worse than no number.
 **Two hard limits.** The committed fixtures were recorded with prompt `p3`,
 while the adapter now reports `p4`, so a live scorecard also moves the prompt
 and cannot be read as a model-only comparison. And `jp_0001` / `jp_0002` come
-from UEC-Food 256, whose terms permit non-commercial research only; their
-archive source returns HTTP 403, and the images must not be uploaded to a
-third-party API. Live coverage is therefore at most 75 of the 77 published
-rows, and the two missing rows are stated rather than backfilled.
+from UEC-Food 256, whose terms permit non-commercial research only. The harness
+refuses them by licence: `select_rows` drops them, `input_for_row` raises
+`LiveIneligibleRow` before any bytes are read, and the live scorecard header and
+`--summary-json` record `rows_excluded_live` with the sample ids and reasons.
+Their archive source also returns HTTP 403, which is a second, independent
+reason the bytes are absent. The live scope is therefore 75 of the 77 published
+rows by rule, not a 75-row run with two failed downloads, and the two excluded
+rows are stated rather than backfilled. The rule trusts the curated
+`image_license` string; it does not fetch or verify the upstream terms.
 
-A live run with no `--limit` over the published scope is 77 calls at the
-adapter's four-second pacing: roughly 6-9 minutes and a few cents. Nothing is
-written to `eval/fixtures/`.
+A live run with no `--limit` over the published scope is 75 calls from the 77
+in-scope rows, because two are refused by licence, at the adapter's
+four-second pacing: roughly 6-8 minutes and a few cents. Nothing is written to
+`eval/fixtures/`.
 
 Two such runs exist, on 2026-11-02 at the commit that added this path:
 

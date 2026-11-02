@@ -39,9 +39,13 @@ def test_n5k_0010_partial_truth_is_not_calorie_eligible():
     ]
     entry = next(row for row in rows if row["sample_id"] == "n5k_0010")
 
-    assert [item["food_id"] for item in entry["truth"]["items"]] == ["us.rice_white_cooked"]
+    assert [item["food_id"] for item in entry["truth"]["items"]] == [
+        "us.rice_white_cooked",
+        "us.pork_roasted",
+        "us.tofu_firm",
+    ]
     assert {item["name"] for item in entry["unmapped_source_ingredients"]} == {
-        "pork", "tofu", "pepper", "bok choy", "garlic", "soy sauce", "salt", "sugar",
+        "pepper", "bok choy", "garlic", "soy sauce", "salt", "sugar",
     }
     assert not calorie_truth_complete(entry)
     assert result(calorie_eligible=False, truth_kcal=205.4, pred_kcal=5.4).ape is None

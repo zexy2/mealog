@@ -583,6 +583,9 @@ size of the gap visible without installing the data that creates it.
 
 **Cost.** The published headline gets worse: coverage 12% → 9%, Item F1
 0.15 → 0.13, FP rate 86.0% → 88.2%, and retrieval drops from 145 variants to 38
+(these were the numbers at the time; D25 later corrected the truth both scopes
+were scored against, so the current pair is 0.39 vs 0.38 — the scope trade is
+unchanged)
 (30 positives, 8 negatives). Three golden rows and 107 retrieval variants are
 named but not measured in the published set, and a maintainer must run
 `make eval-restricted` to see the complete picture. That is the intended
@@ -637,3 +640,48 @@ non-commercial research only, and their archive source currently returns HTTP
 **Cost.** A full live run is 77 provider calls at four-second pacing
 (roughly 6–9 minutes, a few cents) and produces a number that will be stale.
 That is the price of keeping the reproducible number reproducible.
+
+## D25 — Golden truth is re-derived from the catalogue, not remembered
+
+**Context.** The en_US catalogue grew from 24 to 38 foods. The golden manifest
+did not: rows annotated earlier still listed ingredients such as broccoli, pork
+and tofu in `unmapped_source_ingredients`, because at annotation time they were
+outside the catalogue. They were inside it by the time the scorecard ran. The
+harness therefore scored correct predictions as false positives: 73 of 135
+counted false positives were catalogue foods the truth had forgotten, and the
+published false-positive rate was 88.2% instead of 40.5%.
+
+This is the more dangerous kind of evaluation bug. A stale truth does not
+crash; it produces a plausible, unflattering number, and the project then
+explains that number with a story about model weakness that is partly false.
+
+**Decision.** Truth completeness is a derived property of the shipped
+catalogue, not a hand-maintained memory.
+
+- `scripts/remap_golden_ingredients.py` maps an `unmapped_source_ingredients`
+  name to a food only when the whole name equals a food id, name or existing
+  alias after case and whitespace normalisation. No fuzzy matching, no
+  embeddings, no model judgement, no new synonyms.
+- Grams come from the source ingredient's recorded mass; a match without a
+  recorded mass stays unmapped. Existing `truth.items` are never edited.
+- The tool never reads fixtures or predictions. Deciding truth by looking at
+  what the model said is how an evaluation turns into a mirror.
+- `server/tests/test_golden_manifest.py` asserts the tool has nothing left to
+  do, so a future catalogue addition fails CI instead of silently deflating
+  the score again.
+- When truth changes, the published numbers are republished with the reason.
+  The F1 jump from 0.13 to 0.38 is an annotation correction; no model or gate
+  changed.
+
+**Rejected.** Leave the number and keep describing 0.13 as perception
+weakness. The number was reproducible and wrong in a way the repository could
+have detected; publishing it after discovering the cause would make every other
+number suspect. Also rejected: matching by similarity or by an LLM, which would
+quietly tune truth towards whatever the model tends to say, and mapping only
+the ingredients that appear in predictions, which is circular.
+
+**Cost.** The headline moves by a factor of three with no product change, and a
+reader comparing releases sees a discontinuity that needs this decision entry to
+be legible. The tool and its test are more code to maintain, and the remaining
+885 unmapped entries still need human curation if the catalogue grows again.
+The alternative is a measurement we know to be wrong.

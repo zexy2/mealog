@@ -43,6 +43,20 @@ printed 170g serving is an assumption about portion. TurkishFoods-15 and
 UEC-Food 256 provide class labels without mass; their identity axis is Tier 1
 and portion axis Tier 3. No plausible gram figure is substituted.
 
+## Truth completeness
+
+`unmapped_source_ingredients` is not a permanent verdict. The catalogue grows,
+and an ingredient that was outside it at annotation time can be inside it
+later. `scripts/remap_golden_ingredients.py` re-derives the mapping from the
+shipped `en_US` pack by exact name/alias match only (D25): it never edits an
+existing truth item, never reads predictions or fixtures, and leaves anything
+without an exact match or recorded grams unmapped. In this revision it moved
+202 entries into truth across 70 rows, which is why the published Item F1 moved
+from 0.13 to 0.38 with no model change.
+
+`server/tests/test_golden_manifest.py` fails if the tool finds anything left to
+map, so the next catalogue addition cannot silently deflate the score.
+
 ## Fetching inputs
 
 Images are intentionally absent from Git. Fetch them into the ignored local

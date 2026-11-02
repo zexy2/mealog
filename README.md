@@ -121,7 +121,10 @@ numbers.
 `make claims` re-runs both evaluations and fails if this section disagrees with
 them.
 
-- **7/77 commit, 70/77 ask:** 9% grounded coverage in the V3 configuration.
+- **7/77 proposed for review, 70/77 ask:** 9% grounded coverage in the V3
+  configuration. None of the seven is auto-accepted: a count read from a
+  photo caps item confidence at 0.60 against a 0.75 threshold, so a
+  photographed meal always reaches a human confirm.
 - **Item F1 0.13; FP rate 88.2%:** the current identity layer is not accurate
   enough for broad automatic logging.
 - **Calorie MAPE 12.7% on 2/2 rows:** too small a denominator for a general
@@ -147,6 +150,7 @@ food, which is why the gate abstains instead of guessing.
 | Occluded photographed counts | Two stacked simits become `quantity: null`, 100 g with a 65–145 g band, and a count question | Prevents silent undercount but adds review friction |
 | Legume/soup near-neighbours | Some inputs still surface egg, bean, or soup neighbours; low confidence prevents silent commit | Proposed identity can still be wrong |
 | Thin Turkish catalogue | 57 rows once `make pack` installs it (0 on a clean clone); common long-tail dishes are absent | More abstention and correction work |
+| No auto-accepted photo | Every photographed meal routes to `review`; vision-derived counts cap confidence at 0.60, under the 0.75 auto-accept threshold | The gate never silently logs a photo, but nothing is hands-free yet |
 | Catalogue availability | The Turkish rows are licence-restricted and installed separately (`make pack`); without them `tr` answers 503 and only `en_US`/`ja_JP` serve | A clone is not a drop-in Turkish demo until the pack is installed |
 | South Asian coverage | n=16, 0% coverage, Item F1 0.00 | Weakest market is unusable in this evaluation set |
 

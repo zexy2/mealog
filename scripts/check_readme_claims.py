@@ -39,8 +39,10 @@ VARIANTS = ROOT / "eval" / "golden" / "query_variants.jsonl"
 #: Each pattern is anchored on wording that carries meaning, not only on a
 #: number, so a reworded claim fails here instead of drifting unchecked.
 PATTERNS = {
+    # "commit" was the wrong word: every one of these rows routes to review,
+    # never to auto_accept, so the claim now names what actually happens.
     "commit": re.compile(
-        r"\*\*(?P<commit>\d+)/(?P<rows>\d+)\s+commit,\s+"
+        r"\*\*(?P<commit>\d+)/(?P<rows>\d+)\s+proposed\s+for\s+review,\s+"
         r"(?P<ask>\d+)/(?P<rows_again>\d+)\s+ask:\*\*"
     ),
     "coverage": re.compile(
@@ -66,7 +68,7 @@ PATTERNS = {
 }
 
 LABELS = {
-    "commit.commit": "V3 committed samples",
+    "commit.commit": "V3 samples proposed for review",
     "commit.rows": "golden rows",
     "commit.ask": "V3 samples that asked a question",
     "commit.rows_again": "golden rows (second mention)",

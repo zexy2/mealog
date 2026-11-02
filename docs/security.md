@@ -111,6 +111,12 @@ inconvenience.
   rejected: it re-resolved transitive `react-native` and `metro` packages into a
   tree Metro could not parse, which the mobile bundle gate caught. Mobile
   changes go through an Expo-aware upgrade, not a lockfile rewrite.
+- **Build tooling is out of the gate, deliberately.** `@nestjs/cli`, `eslint`
+  and their transitive packages carry advisories that only matter while a
+  developer runs a build. They are development dependencies, `--omit=dev`
+  excludes them, and a critical advisory there does not make a served request
+  unsafe. Pinning production ranges is the check that answers the question that
+  matters; a build-tool upgrade is a separate, scheduled task.
 - **Dependabot** opens weekly grouped pull requests for `npm` in both
   workspaces and for GitHub Actions. Grouped, because a dozen one-line bumps a
   week is how a dependency policy gets muted.

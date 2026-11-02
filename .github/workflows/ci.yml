@@ -55,8 +55,14 @@ jobs:
       # A claim issue is the only lock between agents (docs/submission/AGENTS.md
       # section 3). Checking it is what makes it a lock rather than a
       # convention.
+      #
+      # The claim workflow is an open-source convention, not a way to keep
+      # contributors out. A repository variable CI_REQUIRE_CLAIM=false turns it
+      # off once external contributors start arriving: the requirement only
+      # applies to structure you can enforce without rejecting a newcomer's
+      # first patch.
       - name: pull request stays inside its declared scope
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && vars.CI_REQUIRE_CLAIM != 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/check_claim_scope.py

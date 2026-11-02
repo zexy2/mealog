@@ -56,6 +56,10 @@ an available Android emulator/device.
 Full local instructions, including the keyless Node API smoke test and the
 optional live Gemini integration, are in [docs/running.md](docs/running.md).
 
+The mobile demo runs entirely from bundled fixtures, so it needs no server and
+no catalogue. The server responds in Turkish only once the licence-restricted
+catalogue is installed; `en_US` and `ja_JP` work on a clean clone.
+
 ## Architecture
 
 ```mermaid
@@ -239,8 +243,25 @@ or read the project.
 apps/mobile/         Expo / React Native client
 server/              NestJS edge + framework-free TypeScript pipeline
   src/mealog/        Python reference implementation (offline evaluation)
-locale_packs/        Locale data packs (tr, en_US, ja_JP)
+locale_packs/        Locale packs: en_US and ja_JP ship in full;
+                     tr ships metadata only, its rows are installed separately
 eval/                Offline evaluation harness, fixtures, reports
 docs/                Architecture, decisions, evaluation, security, licensing
 docs/submission/     Original interview deliverable, kept for provenance
 ```
+
+## Contributing
+
+`main` is protected: every change lands through a pull request that passes the
+required `check` job (lint, both test suites, invariant and licence-boundary
+checks, status freshness, and the eval regression guard). There is no bypass,
+including for the maintainer.
+
+```sh
+make check     # what CI runs
+make pack      # optional: install the licence-restricted Turkish catalogue
+```
+
+Issues and discussions are open for bug reports, evaluation questions, and
+proposals. See [docs/submission/AGENTS.md](docs/submission/AGENTS.md) for how
+work is claimed and reviewed in this repository.

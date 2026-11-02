@@ -32,14 +32,15 @@ fixtures, screenshots, or trademarks. Those materials remain under their own
 stated terms, which are recorded in [docs/licensing.md](docs/licensing.md).
 The most important boundary:
 
-- `locale_packs/tr/` contains selected rows derived from **TürKomp**
-  (Ulusal Gıda Kompozisyon Veri Tabanı, version 1.0). The TürKomp data-use
+- `locale_packs/tr/` ships a pack **definition** — its metadata, text rules and
+  licence notice — but none of the nutrition rows. Those rows are derived from
+  **TürKomp** (Ulusal Gıda Kompozisyon Veri Tabanı, version 1.0), whose data-use
   conditions permit conditioned noncommercial sharing and require visible
   attribution; **commercial use of that data requires a separate agreement**
-  with the authorised institution. It is therefore marked
-  `restricted-noncommercial`, is excluded from this MIT licence, and its
-  catalogue is **not in this repository** — it is installed separately with
-  `scripts/install_restricted_pack.py`.
+  with the authorised institution. Nothing derived from TürKomp is in this
+  repository, so the MIT licence above covers everything that is here. Install
+  the rows separately with `scripts/install_restricted_pack.py` if you are
+  entitled to them.
 - `locale_packs/ja_JP/` is **unverified legacy evaluation data** and is not
   presented as verified MEXT data.
 - `locale_packs/en_US/` is derived from USDA FoodData Central, which is

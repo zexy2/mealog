@@ -1,10 +1,14 @@
 version: 2
 
 updates:
+  # Runtime dependencies of the server are the security surface: they parse
+  # untrusted images and multipart bodies. Majors are allowed here because the
+  # advisory that matters is often only fixed in one (docs/security.md §8).
   - package-ecosystem: npm
     directory: /server
     schedule:
       interval: weekly
+    open-pull-requests-limit: 3
     groups:
       server-runtime:
         patterns: ["*"]
@@ -12,15 +16,28 @@ updates:
       server-tooling:
         patterns: ["*"]
         dependency-type: development
+        update-types: ["minor", "patch"]
 
+  # A grouped major bump of development tooling is not a reviewable change:
+  # eslint 9→10, typescript 5→7 and vitest 3→5 fail for different reasons and
+  # the failure does not say which. Minors and patches still arrive grouped.
   - package-ecosystem: npm
     directory: /apps/mobile
     schedule:
       interval: weekly
-    groups:
-      mobile:
-        patterns: ["*"]
     open-pull-requests-limit: 3
+    groups:
+      # Expo is a single SDK: its packages move together or not at all, and a
+      # major is a migration with a device pass, not a version bump.
+      mobile-patch:
+        patterns: ["*"]
+        update-types: ["patch"]
+      mobile-minor:
+        patterns: ["*"]
+        update-types: ["minor"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

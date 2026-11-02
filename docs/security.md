@@ -146,3 +146,26 @@ The first applied batch shows why the distinction matters:
 | Actions group (checkout 4→7, setup-*, python 5→7) | every job green once the claim check is set aside | merged |
 | Server runtime (NestJS 11→12) | `npm ci` fails: `@nestjs/testing@11.2.8` cannot resolve against `@nestjs/common@12.3.2` | closed; the advisory it would have fixed is already closed by the pinned `multer` override |
 | Mobile group (12 Expo packages) | typecheck fails: `absoluteFillObject` and `ScrollView` refs no longer exist in the new React Native types | closed; needs a migration, not a version bump |
+
+### What is not proposed at all
+
+Review rules only help if the pull requests that arrive are reviewable. The
+first week showed that a grouped update spanning several majors cannot be judged
+— a red run does not say which of nine jumps broke it — so the grouping is now
+by update size, and major updates on development dependencies are not opened:
+
+- **Server runtime majors are allowed.** They are the security surface, and the
+  advisory that matters is often only fixed in a major. They are then reviewed
+  by hand like any framework change.
+- **`eslint`, `typescript`, `vitest` majors on development dependencies are
+  ignored.** A compiler or linter major touches every file; it is a scheduled
+  piece of work with its own pull request, not a weekly proposal.
+- **Mobile majors are ignored.** An Expo SDK upgrade is a migration: the last
+  attempt failed typecheck on `absoluteFillObject` and `ScrollView` refs. Minors
+  and patches still arrive, split so that a failure names its own cause.
+- **`@types/node` stays on the runtime's major.** Types that describe a Node
+  version the build does not run are a false safety, not an upgrade.
+
+Ignoring a major is a decision with a date on it: Dependabot stops asking, and
+the upgrade becomes a planned task in the issue tracker where someone can see
+it. What it does not become is a settled "we will never".

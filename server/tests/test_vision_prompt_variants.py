@@ -23,8 +23,10 @@ sys.path.insert(0, str(ROOT / "eval"))
 import harness
 
 from mealog.adapters.vision_gemini import (
+    P5_EDITS,
     PROMPT_VARIANTS,
     PROMPT_VERSION,
+    PROMPTS,
     RESPONSE_SCHEMA,
     SYSTEM_PROMPT,
     GeminiVision,
@@ -37,6 +39,30 @@ from mealog.pipeline.ports import VisionInput
 #: Captured from the unmodified p4 prompt before the variant registry existed.
 P4_SHA256 = "5b49ee2c7cf0f38423d196da8d3041e128703ee6e093da13d6a4dc22522af7f7"
 P4_LENGTH = 2551
+
+#: One exact phrase per p5 change. Whitespace is normalised before matching, so
+#: a phrase may span the prompt's hard line breaks.
+P5_CHANGE_MARKERS = {
+    "a": "Decompose composite surfaces",
+    "b": "List visible fats, oils",
+    "c": "inedible decorative leaves",
+    "d": "`small`, or `a drizzle`",
+    "e": "Return every item with all required schema fields",
+}
+REQUIRED_SCHEMA_KEYS = {
+    "surface_form",
+    "cooking_method",
+    "portion_hint",
+    "count",
+    "medium",
+    "confidence",
+}
+VARIANT_NAMES = ("p4", "p5", "p5a", "p5b", "p5c", "p5d", "p5e")
+
+
+def normalise_whitespace(text: str) -> str:
+    return " ".join(text.split())
+
 
 IMAGE_BYTES = b"\x89PNG\r\n\x1a\nfake-image-bytes"
 
@@ -132,14 +158,100 @@ def test_p5_differs_and_still_mentions_every_required_schema_key() -> None:
         assert f"`{key}`" in p5, f"p5 does not mention required key {key}"
 
 
+def test_five_named_edits_reproduce_p5_exactly() -> None:
+    """The decomposition is complete: p4 plus every edit, in order, is p5.
+
+    This is the proof that ``p5`` is not a fifth independent literal. If an edit
+    stops matching, or a p5 sentence is not covered by an edit, the strings
+    diverge and this test fails instead of the variants silently drifting.
+    """
+    assert [letter for letter, _old, _new in P5_EDITS] == ["a", "b", "c", "d", "e"]
+
+    edited = SYSTEM_PROMPT
+    for letter, old, new in P5_EDITS:
+        assert SYSTEM_PROMPT.count(old) == 1, f"edit {letter} does not occur exactly once in p4"
+        edited = edited.replace(old, new)
+
+    assert edited == prompt_for_variant("p5")
+
+
+@pytest.mark.parametrize("letter", [letter for letter, _old, _new in P5_EDITS])
+def test_each_single_change_variant_isolates_exactly_one_edit(letter: str) -> None:
+    edits = {name: (old, new) for name, old, new in P5_EDITS}
+    old, new = edits[letter]
+    name = f"p5{letter}"
+    variant = prompt_for_variant(name)
+
+    assert PROMPTS[name] == SYSTEM_PROMPT.replace(old, new)
+    assert variant != prompt_for_variant("p4")
+    assert variant != prompt_for_variant("p5")
+
+    words = normalise_whitespace(variant)
+    for other_letter, marker in P5_CHANGE_MARKERS.items():
+        if other_letter == letter:
+            assert marker in words, f"{name} does not contain its own marker {marker!r}"
+        else:
+            assert marker not in words, f"{name} also contains {other_letter}'s marker {marker!r}"
+
+
+def test_prompt_for_variant_returns_every_named_variant() -> None:
+    assert PROMPT_VARIANTS == VARIANT_NAMES
+    assert tuple(PROMPTS) == VARIANT_NAMES
+    for name in VARIANT_NAMES:
+        assert prompt_for_variant(name) == PROMPTS[name]
+
+
 def test_unknown_variant_names_the_available_variants() -> None:
-    with pytest.raises(UnknownPromptVariant, match="available variants: p4, p5"):
+    available = "available variants: p4, p5, p5a, p5b, p5c, p5d, p5e"
+    with pytest.raises(UnknownPromptVariant, match=available):
         prompt_for_variant("p9")
 
-    with pytest.raises(UnknownPromptVariant, match="available variants: p4, p5"):
+    with pytest.raises(UnknownPromptVariant, match=available):
         GeminiVision("key", prompt_variant="p9")
 
-    assert PROMPT_VARIANTS == ("p4", "p5")
+    assert PROMPT_VARIANTS == VARIANT_NAMES
+
+
+def test_no_variant_changes_the_response_schema() -> None:
+    """A prompt variant changes prose only; the JSON contract stays frozen.
+
+    It also checks that every variant keeps the field names p4 already gives in
+    prose. The schema-fields reminder (change e) names the two fields p4 leaves
+    implicit, ``cooking_method`` and ``confidence``, so only the variants that
+    carry that edit name all six.
+    """
+    schema_snapshot = json.dumps(RESPONSE_SCHEMA, sort_keys=True)
+    p4_prompt = prompt_for_variant("p4")
+    p4_named_fields = {key for key in REQUIRED_SCHEMA_KEYS if f"`{key}`" in p4_prompt}
+    assert p4_named_fields == {"surface_form", "portion_hint", "count", "medium"}
+
+    for name in VARIANT_NAMES:
+        transport = FakeTransport(provider_response())
+        vision = GeminiVision(
+            "key",
+            opener=transport,
+            request_interval=0,
+            secondary_model=None,
+            prompt_variant=name,
+        )
+        assert vision.system_prompt == prompt_for_variant(name)
+        vision.perceive(VisionInput(text="scrambled eggs"))
+
+        payload = json.loads(transport.requests[0].data)
+        sent_schema = payload["generationConfig"]["responseSchema"]
+        assert json.dumps(sent_schema, sort_keys=True) == schema_snapshot
+        item_schema = sent_schema["properties"]["items"]["items"]
+        assert set(item_schema["properties"]) == REQUIRED_SCHEMA_KEYS
+        assert set(item_schema["required"]) == REQUIRED_SCHEMA_KEYS
+
+        prompt = prompt_for_variant(name)
+        for key in p4_named_fields:
+            assert f"`{key}`" in prompt, f"{name} dropped p4's mention of {key}"
+
+    for name in ("p5", "p5e"):
+        prompt = prompt_for_variant(name)
+        for key in REQUIRED_SCHEMA_KEYS:
+            assert f"`{key}`" in prompt, f"{name} does not mention required key {key}"
 
 
 class RecordingVision:

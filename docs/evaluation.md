@@ -298,6 +298,14 @@ Two consequences follow, and both constrain what a fix can honestly claim:
   photograph and would not shrink under a perfect detector. That ceiling is
   stated rather than engineered around by deleting the rows.
 
+One label category carries much of that gap: `us.olive_oil` is 65 of the 331
+truth items and 61 of the 177 never perceived.
+[visible-ingredient-ceiling-2026-11-03.md](visible-ingredient-ceiling-2026-11-03.md)
+recomputes the ceiling under explicit exclusions — removing olive oil lifts it
+to 0.72, and removing every item under 10 g as well lifts it to 0.83 but still
+leaves 52 never-perceived items. Those are sensitivity cuts, not a new
+denominator: the published 0.64 and Item F1 0.38 are unchanged.
+
 Of the 62 false positives, 49 are foods the model named verbatim and 60 sit on
 rows whose truth is incomplete; 13 are similarity-only bindings, the only class
 a better ranker can fix.

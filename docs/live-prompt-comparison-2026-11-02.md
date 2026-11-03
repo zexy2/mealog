@@ -55,8 +55,11 @@ quality; the columns expose the denominator.
 ## What changed and what did not
 
 Coverage is flat: 12% in three runs and 13% in one. The `p5` bundle did not make the adjudicator
-answer more meals, so the perception ceiling did not shift; the gain is inside rows already
-committing something. The committed/asked/abstained columns say the same: 9, 9, 10 and 9 committed.
+answer more meals. That bounds how many **rows** commit something; it does not establish that the
+set of perceived items is unchanged. The item-level follow-up on 2026-11-03 found 14 truth items
+newly entering candidate lists and 6 leaving between `p4` and `p5`, with both new perception and
+new commitment contributing. The committed/asked/abstained columns say the same at row level:
+9, 9, 10 and 9 committed.
 
 Item F1 moved, and the movement is concentrated. `east_asian` went from 0.26/0.27 to 0.39/0.34 and
 `south_asian` from 0.18/0.18 to 0.26/0.28. `western`, `mediterranean` and `latin_american` are flat.
@@ -84,25 +87,41 @@ do not overlap, but two runs per variant on one afternoon cannot separate a prom
 provider nondeterminism, and the FP spread shows these are samples of one model's behaviour, not
 fixed prompt properties. That is why this document does not call the difference proven.
 
+## Follow-up: item-level attribution (2026-11-03)
+
+[#474](https://github.com/zexy2/mealog/issues/474) reran the same question a day later and
+applied `eval/compare_predictions.py` to a separate quadruple run, not the four artifacts above.
+That run classifies every truth item as resolved, perceived or absent; between `p4` and `p5`, 8
+items moved from `absent` to `resolved`, 6 from `absent` to `perceived`, and 8 from `perceived`
+to `resolved`, for a net of +13 resolved. The second pairing reproduces the split. Both new
+perception and commitment of already-perceived items contributed, so this document's
+coverage-only reading of the mechanism is corrected at item level while its aggregate numbers
+stand. See [live-prompt-attribution-2026-11-03.md](live-prompt-attribution-2026-11-03.md).
+
 ## What this does not show
 
 - No proof that `p5` is better in general, and no significance claim at n=2.
-- No attribution to one of the five bundled changes; the mechanism supports splitting them and that
-  has not been done.
-- No measurement of the live perception ceiling. The 2026-11-02 runs have aggregate metrics only,
-  with no per-row prediction artifact, so they cannot say which items `p5` newly perceived.
+- No attribution to one of the five bundled changes. The item-level follow-up separates new
+  perception from new commitment, but not the five changes; single-change variants have not
+  been run.
+- No measurement of the live perception ceiling by these runs: they have aggregate metrics only,
+  with no per-row prediction artifact. The 2026-11-03 follow-up corrects the ceiling
+  interpretation at item level, but it is a separate quadruple run, not a re-analysis of these
+  artifacts.
 - No calorie conclusion: one or two scored rows.
 - No statement about a model other than `gemini-3.5-flash-lite` on this day.
 
 ## What a clean attribution needs
 
-Two changes, and only the first is a prompt experiment. Split the bundle into single-change variants
-and run each against `p4` over the same scope and run count; `--prompt-variant` already supports
-naming them, so this is prompt text plus runs, not new machinery. The second is a harness change, and
-it now exists: as of [#472](https://github.com/zexy2/mealog/issues/472) the harness can record
-per-row predictions with `--predictions`, so a variant can be credited with the truth items it
-perceived, not just an aggregate F1. No attribution run has been done yet, and the artifact alone
-does not attribute anything; it is the instrument the prompt experiment still needs.
+One change remains a prompt experiment. Split the bundle into single-change variants and run each
+against `p4` over the same scope and run count; `--prompt-variant` already supports naming them,
+so this is prompt text plus runs, not new machinery. The instrument now exists and has been used:
+as of [#472](https://github.com/zexy2/mealog/issues/472) the harness records per-row predictions
+with `--predictions`, and [#478](https://github.com/zexy2/mealog/pull/478) added
+`eval/compare_predictions.py` to classify truth items and compute flows. The 2026-11-03 follow-up
+applies both to a separate quadruple run. What remains is splitting the bundle into single-change
+variants; the artifacts attribute movement to perception versus commitment, not to one of the
+five changes. These 2026-11-02 runs still have no per-row prediction artifact of their own.
 
 ## Provenance
 

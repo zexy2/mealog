@@ -407,6 +407,24 @@ The real line the test double emitted, with the third candidate omitted:
 {"config":"V3","sample_id":"n5k_0001","locale":"en_US","cuisine":"western","tier":"tier_1","prompt_variant":"p4","perceived":[{"query":"grilled chicken","food_id":"us.chicken_breast_grilled","abstained":false,"confidence":1.0,"candidates":[{"food_id":"us.chicken_breast_grilled","score":1.0},{"food_id":"us.salmon_cooked","score":0.416}]}],"truth_ids":["us.chicken_breast_grilled"],"pred_ids":["us.chicken_breast_grilled"],"row_error":null}
 ```
 
+`eval/compare_predictions.py` reads one or two of those artifacts and
+classifies every truth item on a successfully scored row as **resolved** (in
+`pred_ids`), **perceived** (in a candidate list but not answered) or **absent**
+(in no candidate list), reporting counts overall, by cuisine and by tier, plus
+the most common absent foods. With `--candidate` it joins two artifacts on
+`(sample_id, food_id)` and reports the flow between classes and the net change
+in each. The artifact keeps at most three candidates while the offline identity
+diagnosis keeps five, so `absent` here is stricter and the two counts are not
+interchangeable. A two-artifact flow is computed only over the sample ids both
+artifacts scored successfully; rows missing from one side or failed there are
+named with the counts they drop, so an intersection result is never presented
+as a full-run comparison.
+
+```bash
+python eval/compare_predictions.py --baseline /tmp/preds-p4.jsonl \
+  --candidate /tmp/preds-p5.jsonl
+```
+
 ### Live budget and failure attribution
 
 The per-row wall-clock budget is resolved when the adapter is constructed. An

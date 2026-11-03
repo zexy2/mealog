@@ -425,6 +425,14 @@ python eval/compare_predictions.py --baseline /tmp/preds-p4.jsonl \
   --candidate /tmp/preds-p5.jsonl
 ```
 
+The tool was applied to a second quadruple live run on 2026-11-03; the result is
+[live-prompt-attribution-2026-11-03.md](live-prompt-attribution-2026-11-03.md). Both new
+perception and commitment of already-perceived items moved between `p4` and `p5`: 14 truth
+items entered candidate lists and 6 left, while 16 gross gains in `resolved` were offset by 3
+losses. The `p4b` run lost one row to `local_deadline`, so its comparison with `p5b` uses the
+74-row, 326-item intersection; `absent` remains stricter than the offline diagnosis because
+the artifact holds three candidates, not five.
+
 ### Live budget and failure attribution
 
 The per-row wall-clock budget is resolved when the adapter is constructed. An

@@ -8,7 +8,8 @@ and catalogue-backed nutrition. When evidence is insufficient, it asks or
 abstains instead of silently saving the nearest guess.
 
 **Start here:** [Run in 30 seconds](#run-in-30-seconds) ·
-[Project tour](docs/tour.md) · [Architecture](#architecture) ·
+[Project tour](docs/tour.md) · [Case study](docs/case-study-2026-11-03.md) ·
+[Architecture](#architecture) ·
 [Decisions](docs/decisions.md) · [Evaluation](docs/evaluation.md)
 
 <p align="center">

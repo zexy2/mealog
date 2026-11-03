@@ -115,10 +115,28 @@ inconvenience.
 - **Mobile critical/high tooling advisories are pinned, not ignored.**
   `apps/mobile/package.json` carries targeted `overrides` for `shell-quote`,
   `brace-expansion`, `image-size`, `js-yaml` and `postcss` (patched releases
-  only, no Expo/React Native downgrade). `npm audit` in `apps/mobile` is now
-  **zero critical/high**. The remaining moderates are `glob`/`minimatch` and
-  Expo CLI trees whose only offered fix is an Expo SDK or React Native major,
-  so they stay reported-not-gated.
+  only, no Expo/React Native downgrade). Re-audited on **2026-11-03**, both
+  `npm audit --json` and `npm audit --omit=dev --json` report the same tree —
+  **0 info, 1 low, 24 moderate, 0 high, 0 critical** (25 total) — because every
+  mobile package is a production dependency (629 prod, 0 dev, 12 optional).
+  There is no critical/high advisory, so this audit changed **no dependency
+  and no lockfile**: the lockfile already satisfies the policy. `expo` 54.0.38,
+  `react-native` 0.81.5 and `react` 19.1.0 are unchanged.
+  All 24 moderate paths descend from two root advisories: `glob`
+  (GHSA-3g3m-2fjr-6pw4, AbortSignal cancellation bypass) and `minimatch`
+  (GHSA-g3hv-75wg-m249, globparts-amplification denial of service). They
+  propagate through the Expo CLI/Metro/config tree (`@expo/cli`,
+  `@expo/config`, `@expo/config-plugins`, `@expo/fingerprint`,
+  `@expo/metro-config`, `@expo/prebuild-config`, `expo`, `expo-asset`,
+  `expo-constants`, `babel-preset-expo`), React Native's codegen/CLI tree
+  (`@react-native/codegen`, `@react-native/babel-plugin-codegen`,
+  `@react-native/babel-preset`, `@react-native/community-cli-plugin`,
+  `@react-native/dev-middleware`, `react-native`), and the Jest/rimraf helpers
+  (`babel-jest`, `@jest/transform`, `babel-plugin-istanbul`, `test-exclude`,
+  `rimraf`, `chromium-edge-launcher`). The single low is `deepmerge` 4.3.1
+  (GHSA-gcqx-w48m-w2h4, prototype poisoning) under `@expo/config`. Every
+  offered fix is an Expo SDK or React Native major, so they stay
+  reported-not-gated.
 - **Build tooling is out of the gate, deliberately.** `@nestjs/cli`, `eslint`
   and their transitive packages carry advisories that only matter while a
   developer runs a build. They are development dependencies, `--omit=dev`

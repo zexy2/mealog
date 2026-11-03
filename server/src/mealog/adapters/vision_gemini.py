@@ -117,11 +117,55 @@ Rules:
   evidence, never positive evidence.
 """
 
+#: The five changes that together turn ``p4`` into ``p5``, in application order.
+#: Each entry is ``(change letter, p4 substring, p5 replacement)``. Keeping the
+#: edits rather than five copied 2.5 kB literals makes each difference reviewable
+#: on its own, and the test that applies all five to ``SYSTEM_PROMPT`` proves the
+#: decomposition is complete and faithful to ``_P5_SYSTEM_PROMPT``.
+P5_EDITS: tuple[tuple[str, str, str], ...] = (
+    # a — composite decomposition: components become their own items.
+    (
+        "a",
+        "- Return one `items[]` object for each distinct primary prepared dish or edible side dish. Never combine multiple visible foods into one `surface_form`: do not return comma-separated or conjunction-linked food lists. A plate with meatballs, rice, bread, and salad has four item objects.",
+        "- Decompose composite surfaces into their visible components. When the components are distinguishable, return one `items[]` object per component; never return `rice and meat` or `chicken salad` as one item. A plate with meatballs, rice, bread, and salad has four item objects. Never combine multiple visible foods into one `surface_form`: do not return comma-separated or conjunction-linked food lists.",
+    ),
+    # b — visible fats, oils, dressings, sauces, garnishes and drinks are items.
+    (
+        "b",
+        "- A single serving in one glass, bowl, plate, or other container is one observed",
+        "- List visible fats, oils, dressings, sauces, garnishes, and drinks as their own items when they are visible or clearly implied by the plate (a glisten of oil, a dressing pool, a sauce ladle). Give each a small portion (a qualitative `small` or `a drizzle`, never a gram estimate) rather than omitting it because it is small. A clearly implied item must still be supported by visible evidence; do not use this rule to invent food that is not there.\n- A single serving in one glass, bowl, plate, or other container is one observed",
+    ),
+    # c — garnish rule narrowed from garnish to inedible garnish.
+    (
+        "c",
+        "Do not report garnish,\n  decorative leaves, or unidentifiable background",
+        "Do not report inedible\n  decorative leaves or unidentifiable background",
+    ),
+    # d — portion_hint examples extended with `small` and `a drizzle`.
+    (
+        "d",
+        "`whole`, `bowl`, or `stacked`, never a count,\n  gram estimate",
+        "`whole`, `bowl`, `stacked`, `small`, or\n  `a drizzle`, never a count, gram estimate",
+    ),
+    # e — schema-fields reminder inserted after the single-serving bullet.
+    (
+        "e",
+        "  add ABSTAIN or other placeholder items.\n- `count` is the only count field.",
+        "  add ABSTAIN or other placeholder items.\n- Return every item with all required schema fields: `surface_form`,\n  `cooking_method`, `portion_hint`, `count`, `medium`, and `confidence`.\n- `count` is the only count field.",
+    ),
+)
+
 #: Named prompt variants. ``p4`` is the shipped prompt and is kept byte-for-byte
-#: as it was, so the default path cannot drift. ``p5`` is an opt-in experiment.
+#: as it was, so the default path cannot drift. ``p5`` is the opt-in experiment
+#: and the union of all five edits. ``p5a``–``p5e`` apply exactly one edit each,
+#: so a live run can attribute a move to one change instead of the bundle.
 PROMPTS: dict[str, str] = {
     "p4": SYSTEM_PROMPT,
     "p5": _P5_SYSTEM_PROMPT,
+    **{
+        f"p5{letter}": SYSTEM_PROMPT.replace(old, new)
+        for letter, old, new in P5_EDITS
+    },
 }
 PROMPT_VARIANTS: tuple[str, ...] = tuple(PROMPTS)
 

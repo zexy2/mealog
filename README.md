@@ -1,6 +1,8 @@
 # Mealog — accuracy-first mobile meal logging
 
 [![CI](https://github.com/zexy2/mealog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zexy2/mealog/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zexy2/mealog)](https://github.com/zexy2/mealog/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Mealog is a React Native meal logger backed by a NestJS/TypeScript service. It
 turns a photo or informal text into canonical foods, explicit portion ranges,
